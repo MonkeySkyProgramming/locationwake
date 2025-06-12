@@ -1,0 +1,21 @@
+
+/* Class = "UIBarButtonItem"; title = "Item"; ObjectID = "B0u-Tm-L7e"; */
+"B0u-Tm-L7e.title" = "Item";
+
+/* Class = "UIButton"; configuration.title = "アラーム音を選択"; ObjectID = "SkN-Ho-yoQ"; */
+"SkN-Ho-yoQ.configuration.title" = "アラーム音を選択";
+
+/* Class = "UIButton"; normalTitle = "Button"; ObjectID = "SkN-Ho-yoQ"; */
+"SkN-Ho-yoQ.normalTitle" = "Button";
+
+/* Class = "UILabel"; text = "アラーム音"; ObjectID = "SsI-iT-lW4"; */
+"SsI-iT-lW4.text" = "アラーム音";
+
+/* Class = "UILabel"; text = "Label"; ObjectID = "clK-LI-tNS"; */
+"clK-LI-tNS.text" = "Label";
+
+/* Class = "UIBarButtonItem"; title = "Save"; ObjectID = "fmk-vZ-aoW"; */
+"fmk-vZ-aoW.title" = "Save";
+
+/* Class = "UILabel"; text = "アラーム名"; ObjectID = "z8C-cf-Nsr"; */
+"z8C-cf-Nsr.text" = "アラーム名";
