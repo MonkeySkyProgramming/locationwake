@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		130C18062DFAA17500A9F556 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 130C18052DFAA17500A9F556 /* .gitignore */; };
 		137DE3912D77743200E22525 /* OnboardingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137DE3902D77743200E22525 /* OnboardingViewController.swift */; };
 		139920582DEEB9FF009E330E /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 139920572DEEB9FF009E330E /* GoogleMobileAds */; };
 		13B7D32D2CB3D40600BDAD6C /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 13B7D32C2CB3D40600BDAD6C /* LaunchScreen.storyboard */; };
@@ -55,6 +56,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		130C18052DFAA17500A9F556 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		137DE3902D77743200E22525 /* OnboardingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewController.swift; sourceTree = "<group>"; };
 		13BF0DDF2D35EAA600D23495 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
 		13BF0DE02D35EAA600D23495 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Main.strings; sourceTree = "<group>"; };
@@ -133,6 +135,7 @@
 		13E84A0C2C86B4F500C933F6 = {
 			isa = PBXGroup;
 			children = (
+				130C18052DFAA17500A9F556 /* .gitignore */,
 				13E84A172C86B4F500C933F6 /* locationwake */,
 				13E84A2E2C86B4F700C933F6 /* locationwakeTests */,
 				13E84A382C86B4F700C933F6 /* locationwakeUITests */,
@@ -374,6 +377,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				130C18062DFAA17500A9F556 /* .gitignore in Resources */,
 				13BF0DE52D35EE8B00D23495 /* Main.storyboard in Resources */,
 				13E84A222C86B4F700C933F6 /* Assets.xcassets in Resources */,
 				13E84A712C88AA2400C933F6 /* AlarmTableViewCell.xib in Resources */,
@@ -672,7 +676,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.03;
+				MARKETING_VERSION = 1.04;
 				PRODUCT_BUNDLE_IDENTIFIER = monkey.locationwake;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -709,7 +713,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.03;
+				MARKETING_VERSION = 1.04;
 				PRODUCT_BUNDLE_IDENTIFIER = monkey.locationwake;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
