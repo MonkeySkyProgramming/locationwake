@@ -27,6 +27,9 @@ class AlarmDetailViewController: BaseViewController, CLLocationManagerDelegate, 
     
     let soundPlayer = SoundPlayer.shared
 
+    let repeatSelectionButton = UIButton(type: .system)
+    var selectedRepeatWeekdays: Set<Int> = []
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setupLocationManager()
@@ -45,6 +48,7 @@ class AlarmDetailViewController: BaseViewController, CLLocationManagerDelegate, 
             // アラーム音をボタンに反映
             selectedSoundFileName = alarm.sound
             soundSelectionButton.setTitle(alarm.sound, for: .normal)
+            selectedRepeatWeekdays = Set(alarm.repeatWeekdays ?? [])
         }
         
         // 位置名が設定されている場合、テキストフィールドに表示
@@ -66,7 +70,11 @@ class AlarmDetailViewController: BaseViewController, CLLocationManagerDelegate, 
         let saveButton = UIBarButtonItem(title: "保存", style: .done, target: self, action: #selector(saveButtonTapped))
         navigationItem.rightBarButtonItem = saveButton
 
+        setupRepeatSelectionButton()
+
         // updateMapDisplay(withRadius: initialRadius) // moved to viewDidAppear
+
+        updateRepeatButtonTitle()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -138,7 +146,7 @@ class AlarmDetailViewController: BaseViewController, CLLocationManagerDelegate, 
 
         let newAlarm = Alarm(
             name: alarmName,
-            repeatDays: [], // 繰り返し設定があれば追加
+            repeatWeekdays: Array(selectedRepeatWeekdays).sorted(),
             sound: sound ,
             isAlarmEnabled: true,
             isSoundEnabled: soundIsEnabled,
@@ -245,5 +253,83 @@ class AlarmDetailViewController: BaseViewController, CLLocationManagerDelegate, 
     func updateRadiusLabel(withRadius radius: CLLocationDistance) {
         let radiusInKm = radius / 1000
         radiusLabel.text = String(format: "半径: %.2f km", radiusInKm)
+    }
+
+    func setupRepeatSelectionButton() {
+        repeatSelectionButton.setTitle("繰り返しを選択", for: .normal)
+        repeatSelectionButton.addTarget(self, action: #selector(showRepeatSelection), for: .touchUpInside)
+        repeatSelectionButton.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(repeatSelectionButton)
+        
+        NSLayoutConstraint.activate([
+            repeatSelectionButton.topAnchor.constraint(equalTo: soundSelectionButton.bottomAnchor, constant: 20),
+            repeatSelectionButton.centerXAnchor.constraint(equalTo: view.centerXAnchor)
+        ])
+    }
+
+    @objc func showRepeatSelection() {
+        let vc = RepeatSelectionViewController()
+        vc.selected = selectedRepeatWeekdays
+        vc.onSave = { [weak self] selected in
+            self?.selectedRepeatWeekdays = selected
+            self?.updateRepeatButtonTitle()
+        }
+
+        let nav = UINavigationController(rootViewController: vc)
+        present(nav, animated: true)
+    }
+
+    func updateRepeatButtonTitle() {
+        let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
+        let selectedTitles = selectedRepeatWeekdays.sorted().map { weekdays[$0] }
+        let title = selectedTitles.isEmpty ? "繰り返しを選択" : "繰り返し: " + selectedTitles.joined(separator: "・")
+        repeatSelectionButton.setTitle(title, for: .normal)
+    }
+}
+
+class RepeatSelectionViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
+
+    var weekdays = ["日", "月", "火", "水", "木", "金", "土"]
+    var selected: Set<Int> = []
+    var onSave: ((Set<Int>) -> Void)?
+
+    let tableView = UITableView()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+        title = "繰り返し"
+
+        tableView.delegate = self
+        tableView.dataSource = self
+        tableView.frame = view.bounds
+        view.addSubview(tableView)
+
+        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "完了", style: .done, target: self, action: #selector(doneTapped))
+    }
+
+    @objc func doneTapped() {
+        onSave?(selected)
+        dismiss(animated: true)
+    }
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        weekdays.count
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = UITableViewCell()
+        cell.textLabel?.text = weekdays[indexPath.row]
+        cell.accessoryType = selected.contains(indexPath.row) ? .checkmark : .none
+        return cell
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        if selected.contains(indexPath.row) {
+            selected.remove(indexPath.row)
+        } else {
+            selected.insert(indexPath.row)
+        }
+        tableView.reloadRows(at: [indexPath], with: .automatic)
     }
 }

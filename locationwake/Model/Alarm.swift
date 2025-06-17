@@ -7,7 +7,7 @@ struct Location: Codable {
 
 struct Alarm: Codable {
     var name: String
-    var repeatDays: [String]
+    var repeatWeekdays: [Int]? // 0:日曜〜6:土曜、繰り返し曜日
     var sound: String
     var isAlarmEnabled: Bool // アラーム自体のオンオフ
     var isSoundEnabled: Bool // アラーム音のオンオフ

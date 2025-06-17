@@ -268,7 +268,7 @@ class AlarmListViewController: BaseViewController, UITableViewDelegate, UITableV
         if !loaded || alarms.isEmpty {
             let sampleAlarm = Alarm(
                 name: "サンプルアラーム",
-                repeatDays: [],
+                repeatWeekdays: [],
                 sound: "modan",
                 isAlarmEnabled: false, // ← アラームはオフ
                 isSoundEnabled: true,

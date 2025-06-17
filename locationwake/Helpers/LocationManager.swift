@@ -124,6 +124,11 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             print("Geofence領域に入りました: \(circularRegion.identifier)")
             // アラーム名に基づいてアラームを検索し、サウンドを再生
             if let alarm = findAlarm(for: circularRegion.identifier), alarm.isAlarmEnabled {
+                let today = Calendar.current.component(.weekday, from: Date()) - 1 // Sunday = 0
+                if let repeatDays = alarm.repeatWeekdays, !repeatDays.isEmpty, !repeatDays.contains(today) {
+                    print("アラーム \(alarm.name) は本日(\(today))は繰り返し対象外のためスキップ")
+                    return
+                }
                 triggerAlarm(for: alarm)
             }
         }
@@ -168,7 +173,9 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
         // アラームが作動したので isAlarmEnabled をオフにする
         if let index = alarms.firstIndex(where: { $0.name == alarm.name }) {
-            alarms[index].isAlarmEnabled = false
+            if alarms[index].repeatWeekdays?.isEmpty ?? true {
+                alarms[index].isAlarmEnabled = false
+            }
             alarms[index].hasTriggered = true  // トリガー済みフラグをセット
             saveAlarms() // アラーム設定を保存
             print("\(alarm.name) のアラームがトリガーされ、無効化されました。")
