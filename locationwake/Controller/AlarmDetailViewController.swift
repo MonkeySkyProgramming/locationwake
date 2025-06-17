@@ -63,7 +63,7 @@ class AlarmDetailViewController: BaseViewController, CLLocationManagerDelegate, 
         soundSwitch.addTarget(self, action: #selector(alarmSwitchToggled(_:)), for: .valueChanged)
         
         // ナビゲーションバーに保存ボタンを追加
-        let saveButton = UIBarButtonItem(title: "Save", style: .done, target: self, action: #selector(saveButtonTapped))
+        let saveButton = UIBarButtonItem(title: "保存", style: .done, target: self, action: #selector(saveButtonTapped))
         navigationItem.rightBarButtonItem = saveButton
 
         // updateMapDisplay(withRadius: initialRadius) // moved to viewDidAppear
