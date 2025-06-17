@@ -5,7 +5,7 @@ class OnboardingViewController: UIViewController, UIScrollViewDelegate {
     var isFromHelpButton: Bool = false
 
     // 事前にアセットカタログに追加しておいた画像名の配列
-    let images = ["onboarding1", "onboarding2", "onboarding3", "onboarding4"]
+    let images = ["AppStore1", "AppStore2", "AppStore3", "AppStore4", "AppStore5"]
     var scrollView: UIScrollView!
     var pageControl: UIPageControl!
     
@@ -61,8 +61,8 @@ class OnboardingViewController: UIViewController, UIScrollViewDelegate {
             NSLayoutConstraint.activate([
                 imageView.centerXAnchor.constraint(equalTo: pageView.centerXAnchor),
                 imageView.centerYAnchor.constraint(equalTo: pageView.centerYAnchor, constant: -40), // 少し上に配置してボタンスペース確保
-                imageView.widthAnchor.constraint(equalTo: pageView.widthAnchor, multiplier: 1),
-                imageView.heightAnchor.constraint(equalTo: pageView.heightAnchor, multiplier: 1)
+                imageView.widthAnchor.constraint(equalTo: pageView.widthAnchor, multiplier: 0.8),
+                imageView.heightAnchor.constraint(equalTo: pageView.heightAnchor, multiplier: 0.8)
             ])
             
             // 「Next」または「Get Started」ボタンを追加
@@ -79,7 +79,7 @@ class OnboardingViewController: UIViewController, UIScrollViewDelegate {
             pageView.addSubview(nextButton)
             
             NSLayoutConstraint.activate([
-                nextButton.bottomAnchor.constraint(equalTo: pageView.safeAreaLayoutGuide.bottomAnchor, constant: -80),
+                nextButton.bottomAnchor.constraint(equalTo: pageView.safeAreaLayoutGuide.bottomAnchor, constant: -40),
                 nextButton.centerXAnchor.constraint(equalTo: pageView.centerXAnchor),
                 nextButton.widthAnchor.constraint(equalToConstant: 200),
                 nextButton.heightAnchor.constraint(equalToConstant: 50)
