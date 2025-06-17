@@ -40,8 +40,6 @@ class AlarmDetailViewController: BaseViewController, CLLocationManagerDelegate, 
             if let location = alarm.location {
                 selectedLocation = CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude)
                 selectedRadius = alarm.radius
-                // マップの表示を更新（半径を指定）
-                updateMapDisplay(withRadius: selectedRadius ?? 3000)
             }
             
             // アラーム音をボタンに反映
@@ -55,9 +53,10 @@ class AlarmDetailViewController: BaseViewController, CLLocationManagerDelegate, 
         }
         
         // スライダーの初期値を設定（半径に基づく）
-        rangeSlider.value = Float(selectedRadius ?? 3000) / 10000
-        updateRadiusLabel(withRadius: selectedRadius ?? 3000)
-        updateMapDisplay(withRadius: 6000)
+        let initialRadius = selectedRadius ?? 3000
+        selectedRadius = initialRadius
+        rangeSlider.value = Float(initialRadius) / 10000
+        updateRadiusLabel(withRadius: initialRadius)
         
         // アラームスイッチの初期状態を設定
         soundSwitch.isOn = alarm?.isSoundEnabled ?? false
@@ -66,6 +65,16 @@ class AlarmDetailViewController: BaseViewController, CLLocationManagerDelegate, 
         // ナビゲーションバーに保存ボタンを追加
         let saveButton = UIBarButtonItem(title: "Save", style: .done, target: self, action: #selector(saveButtonTapped))
         navigationItem.rightBarButtonItem = saveButton
+
+        // updateMapDisplay(withRadius: initialRadius) // moved to viewDidAppear
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+
+        if let radius = selectedRadius {
+            updateMapDisplay(withRadius: radius)
+        }
     }
 
     // 音声選択ボタンが押されたときの処理
