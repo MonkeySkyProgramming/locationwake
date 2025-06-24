@@ -1,5 +1,6 @@
 import UIKit
 import CoreLocation
+import SwiftUI
 
 class AlarmListViewController: BaseViewController, UITableViewDelegate, UITableViewDataSource, AlarmDetailViewControllerDelegate, CLLocationManagerDelegate, AlarmTableViewCellDelegate ,LocationManagerDelegate{
     
@@ -14,57 +15,21 @@ class AlarmListViewController: BaseViewController, UITableViewDelegate, UITableV
     
     override func viewDidLoad() {
         super.viewDidLoad()
-                
-        let hasSeenOnboarding = UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
-        if !hasSeenOnboarding {
-            presentOnboarding()
-        }
 
-        LocationManager.shared.delegate = self // デリゲート設定
-
-        // デリゲートとデータソースを設定
-        tableView.delegate = self
-        tableView.dataSource = self
-
-        // xib ファイルを使用してカスタムセルを登録
-        let nib = UINib(nibName: "AlarmTableViewCell", bundle: nil)
-        tableView.register(nib, forCellReuseIdentifier: "AlarmCell")
-
-        // locationManagerの初期化
-        locationManager = CLLocationManager()
-        locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.allowsBackgroundLocationUpdates = true  // バックグラウンドでの位置情報更新を許可
-        locationManager.pausesLocationUpdatesAutomatically = false  // 位置情報更新の自動停止を無効化
-        
-        // 位置情報サービスの確認とリクエスト
-        checkLocationAuthorization()
-        
-        // 通知の許可をリクエスト
-        NotificationManager.shared.requestNotificationPermission()
-        
-        // 保存されたアラームを読み込む
-        loadAlarms()
-        printAlarms()
-        
-        
-        // テーブルビューをリロードして、スイッチに反映
-        tableView.reloadData()
-
-        // 画面右下にヘルプボタン(UIButton)を追加
-        let helpButton = UIButton(type: .system)
-        helpButton.translatesAutoresizingMaskIntoConstraints = false
-        helpButton.setImage(UIImage(systemName: "questionmark.circle"), for: .normal)
-        helpButton.tintColor = .systemBlue
-        helpButton.addTarget(self, action: #selector(helpButtonTapped), for: .touchUpInside)
-        view.addSubview(helpButton)
+        let swiftUIView = AlarmListSwiftUIView()
+        let hostingController = UIHostingController(rootView: swiftUIView)
+        addChild(hostingController)
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(hostingController.view)
 
         NSLayoutConstraint.activate([
-            helpButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            helpButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -50),
-            helpButton.widthAnchor.constraint(equalToConstant: 50),
-            helpButton.heightAnchor.constraint(equalToConstant: 50)
+            hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
+
+        hostingController.didMove(toParent: self)
     }
     
     func presentOnboarding() {
@@ -357,5 +322,11 @@ class AlarmListViewController: BaseViewController, UITableViewDelegate, UITableV
             onboardingVC.isFromHelpButton = true
             present(onboardingVC, animated: true, completion: nil)
         }
+    }
+
+    @IBAction func showSwiftUIList(_ sender: UIButton) {
+        let swiftUIView = AlarmListSwiftUIView()
+        let hostingController = UIHostingController(rootView: swiftUIView)
+        navigationController?.pushViewController(hostingController, animated: true)
     }
 }

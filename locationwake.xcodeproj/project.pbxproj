@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -96,6 +96,10 @@
 		F35D748A9EC20B23C6171DBB /* Pods_locationwake.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_locationwake.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		13A294672E0153A30074DA9C /* SwiftUIView */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = SwiftUIView; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
 		13E84A122C86B4F500C933F6 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -158,6 +162,7 @@
 		13E84A172C86B4F500C933F6 /* locationwake */ = {
 			isa = PBXGroup;
 			children = (
+				13A294672E0153A30074DA9C /* SwiftUIView */,
 				13B7D32C2CB3D40600BDAD6C /* LaunchScreen.storyboard */,
 				13E84A6C2C87284000C933F6 /* Resources */,
 				13E84A672C87280F00C933F6 /* Helpers */,
@@ -283,6 +288,9 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				13A294672E0153A30074DA9C /* SwiftUIView */,
 			);
 			name = locationwake;
 			productName = locationwake;

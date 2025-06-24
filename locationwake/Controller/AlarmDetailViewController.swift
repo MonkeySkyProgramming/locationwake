@@ -285,6 +285,33 @@ class AlarmDetailViewController: BaseViewController, CLLocationManagerDelegate, 
         let title = selectedTitles.isEmpty ? "繰り返しを選択" : "繰り返し: " + selectedTitles.joined(separator: "・")
         repeatSelectionButton.setTitle(title, for: .normal)
     }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+
+        if let alarm = alarm {
+            print("受け取ったアラーム情報:")
+            print("名前: \(alarm.name)")
+            print("半径: \(alarm.radius)")
+            print("位置: \(String(describing: alarm.location))")
+            print("音: \(alarm.sound)")
+            print("音ON: \(alarm.isSoundEnabled)")
+            print("繰り返し: \(alarm.repeatWeekdays ?? [])")
+            
+            alarmNameTextField.text = alarm.name
+            if let location = alarm.location {
+                selectedLocation = CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude)
+            }
+            selectedRadius = alarm.radius
+            selectedSoundFileName = alarm.sound
+            soundSelectionButton.setTitle(alarm.sound, for: .normal)
+            soundSwitch.isOn = alarm.isSoundEnabled
+            selectedRepeatWeekdays = Set(alarm.repeatWeekdays ?? [])
+            updateRadiusLabel(withRadius: selectedRadius ?? 3000)
+            rangeSlider.value = Float((selectedRadius ?? 3000) / 10000)
+            updateRepeatButtonTitle()
+        }
+    }
 }
 
 class RepeatSelectionViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
