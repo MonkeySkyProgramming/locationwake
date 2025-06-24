@@ -6,7 +6,31 @@
 //
 
 import SwiftUI
+import CoreLocation
 
+struct CoordinateWrapper: Hashable {
+    let latitude: Double
+    let longitude: Double
+
+    init(_ coordinate: CLLocationCoordinate2D) {
+        self.latitude = coordinate.latitude
+        self.longitude = coordinate.longitude
+    }
+
+    var clCoordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+}
+
+enum NavigationRoute: Hashable {
+    case locationSelection
+    case alarmDetail(coordinate: CoordinateWrapper, placeName: String?)
+}
+
+// NavigationModel to be shared across views for navigation state
+class NavigationModel: ObservableObject {
+    @Published var path: [NavigationRoute] = []
+}
 
 struct AlarmListSwiftUIView: View {
     @ObservedObject var viewModel = AlarmListViewModel()
@@ -14,17 +38,20 @@ struct AlarmListSwiftUIView: View {
     @State private var showHelp = false
     @State private var showAddAlarm = false
     @State private var selectedAlarm: Alarm?
-    @State private var showDetail = false
     @AppStorage("hasSeenOnboarding") var hasSeenOnboarding: Bool = false
     @State private var navigationTrigger = false
+    @StateObject private var navigationModel = NavigationModel()
 
     var body: some View {
-        NavigationView {
+        NavigationStack(path: $navigationModel.path) {
             List {
                 ForEach(viewModel.alarms.indices, id: \.self) { index in
                     Button(action: {
-                        selectedAlarm = viewModel.alarms[index]
-                        showDetail = true
+                        let alarm = viewModel.alarms[index]
+                        if let location = alarm.location {
+                            let coordinate = CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude)
+                            navigationModel.path.append(.alarmDetail(coordinate: CoordinateWrapper(coordinate), placeName: alarm.name))
+                        }
                     }) {
                         HStack {
                             VStack(alignment: .leading) {
@@ -55,22 +82,31 @@ struct AlarmListSwiftUIView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: LocationSelectionView()) {
+                    Button(action: {
+                        navigationModel.path.append(.locationSelection)
+                    }) {
                         Image(systemName: "plus")
                     }
                 }
             }
+            .navigationDestination(for: NavigationRoute.self) { route in
+                switch route {
+                case .locationSelection:
+                    LocationSelectionView()
+                case .alarmDetail(let coordinate, let placeName):
+                    AlarmDetailView(coordinate: coordinate.clCoordinate, placeName: placeName)
+                }
+            }
         }
+        .environmentObject(navigationModel)
         .sheet(isPresented: $showSettings) {
             StoryboardViewControllerWrapper(storyboardName: "Main", viewControllerIdentifier: "SettingViewController")
         }
         .sheet(isPresented: $showHelp) {
             StoryboardViewControllerWrapper(storyboardName: "Main", viewControllerIdentifier: "OnboardingViewController")
         }
-        .sheet(isPresented: $showDetail) {
-            StoryboardViewControllerWrapper(storyboardName: "Main", viewControllerIdentifier: "AlarmDetailViewController", alarm: selectedAlarm)
-        }
         .onAppear {
+            viewModel.loadAlarms()
             if !hasSeenOnboarding {
                 showHelp = true
                 hasSeenOnboarding = true

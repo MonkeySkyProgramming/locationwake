@@ -14,6 +14,7 @@ struct AlarmDetailView: View {
     @State private var repeatWeekdays: Set<Int> = []
     @State private var mapRegion: MKCoordinateRegion
     @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var navigationModel: NavigationModel
 
     init(coordinate: CLLocationCoordinate2D, placeName: String?) {
         self.coordinate = coordinate
@@ -115,10 +116,27 @@ struct AlarmDetailView: View {
                         radius: radius
                     )
 
-                    saveAlarmSetting(newAlarm)
-                    DispatchQueue.main.async {
-                        dismiss()
+                    // Debug print
+                    print("🔍 保存するアラーム:")
+                    print("名前: \(newAlarm.name)")
+                    print("繰り返し: \(newAlarm.repeatWeekdays)")
+                    print("音: \(newAlarm.sound)")
+                    print("有効: \(newAlarm.isAlarmEnabled), 音有効: \(newAlarm.isSoundEnabled)")
+                    if let location = newAlarm.location {
+                        print("位置: 緯度 \(location.latitude), 経度 \(location.longitude)")
+                    } else {
+                        print("位置情報が設定されていません")
                     }
+                    print("半径: \(newAlarm.radius)")
+
+                    let allAlarms = loadSavedAlarms()
+                    print("📦 現在保存されているアラーム一覧:")
+                    for (i, alarm) in allAlarms.enumerated() {
+                        print("🔔 [\(i)] \(alarm.name), 繰り返し: \(alarm.repeatWeekdays), 音: \(alarm.sound), 緯度: \(alarm.location?.latitude ?? 0), 経度: \(alarm.location?.longitude ?? 0), 半径: \(alarm.radius)")
+                    }
+
+                    saveAlarmSetting(newAlarm)
+                    navigationModel.path = []
                 }
             }
         }
