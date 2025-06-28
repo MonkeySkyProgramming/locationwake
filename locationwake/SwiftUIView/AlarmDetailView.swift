@@ -15,6 +15,7 @@ struct AlarmDetailView: View {
     @State private var mapRegion: MKCoordinateRegion
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var navigationModel: NavigationModel
+    @EnvironmentObject var viewModel: AlarmListViewModel
 
     init(alarm: Alarm) {
         let coordinate = CLLocationCoordinate2D(
@@ -146,6 +147,7 @@ struct AlarmDetailView: View {
                     }
 
                     saveAlarmSetting(newAlarm)
+                    viewModel.loadAlarms()
                     navigationModel.path = []
                 }
             }

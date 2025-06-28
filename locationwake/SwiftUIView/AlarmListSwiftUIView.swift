@@ -118,9 +118,11 @@ struct AlarmListSwiftUIView: View {
                     LocationSelectionView()
                 case .alarmDetail(let alarm):
                     AlarmDetailView(alarm: alarm)
+                        .environmentObject(viewModel)
                 }
             }
         }
+        .environmentObject(viewModel)
         .environmentObject(navigationModel)
         .sheet(isPresented: $showSettings) {
             StoryboardViewControllerWrapper(storyboardName: "Main", viewControllerIdentifier: "SettingViewController")
@@ -130,6 +132,9 @@ struct AlarmListSwiftUIView: View {
         }
         .onAppear {
             viewModel.loadAlarms()
+            print("🔁 アラームリスト再読み込み onAppear")
+
+            // 初回のみオンボーディング表示
             if !hasSeenOnboarding {
                 showHelp = true
                 hasSeenOnboarding = true
