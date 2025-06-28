@@ -31,16 +31,20 @@ var body: some View {
                 } else {
                     List(matchingItems) { item in
                         NavigationLink(
-                            destination: {
-                                let selectedName = item.mapItem.name ?? "nil"
-                                let selectedPlacemark = item.mapItem.placemark.title ?? "nil"
-                                print("Selected Name: \(selectedName)")
-                                print("Selected Placemark Title: \(selectedPlacemark)")
-                                return AlarmDetailView(
-                                    coordinate: item.mapItem.placemark.coordinate,
-                                    placeName: item.mapItem.name ?? item.mapItem.placemark.name ?? item.mapItem.placemark.title
+                            destination: AlarmDetailView(
+                                alarm: Alarm(
+                                    name: item.mapItem.name ?? "未命名",
+                                    repeatWeekdays: [],
+                                    sound: "未選択",
+                                    isAlarmEnabled: true,
+                                    isSoundEnabled: true,
+                                    location: Location(
+                                        latitude: item.mapItem.placemark.coordinate.latitude,
+                                        longitude: item.mapItem.placemark.coordinate.longitude
+                                    ),
+                                    radius: 3000
                                 )
-                            }()
+                            )
                         ) {
                             VStack(alignment: .leading) {
                                 Text(item.mapItem.name ?? "不明な場所")

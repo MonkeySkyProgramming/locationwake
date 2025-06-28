@@ -16,14 +16,24 @@ struct AlarmDetailView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var navigationModel: NavigationModel
 
-    init(coordinate: CLLocationCoordinate2D, placeName: String?) {
+    init(alarm: Alarm) {
+        let coordinate = CLLocationCoordinate2D(
+            latitude: alarm.location?.latitude ?? 0,
+            longitude: alarm.location?.longitude ?? 0
+        )
         self.coordinate = coordinate
-        self.placeName = placeName
+        self.placeName = alarm.name
         _selectedCoordinate = State(initialValue: coordinate)
-        _alarmName = State(initialValue: placeName ?? "")
+        _alarmName = State(initialValue: alarm.name)
+        _radius = State(initialValue: alarm.radius ?? 3000)
+        _isSoundEnabled = State(initialValue: alarm.isSoundEnabled)
+        _selectedSound = State(initialValue: alarm.sound)
+        _repeatWeekdays = State(initialValue: Set(alarm.repeatWeekdays ?? []))
         _mapRegion = State(initialValue: MKCoordinateRegion(
             center: coordinate,
-            span: MKCoordinateSpan(latitudeDelta: 3000 / 80000, longitudeDelta: 3000 / 80000)))
+            span: MKCoordinateSpan(
+                latitudeDelta: (alarm.radius ?? 3000) / 80000,
+                longitudeDelta: (alarm.radius ?? 3000) / 80000)))
     }
 
     var body: some View {

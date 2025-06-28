@@ -24,7 +24,31 @@ struct CoordinateWrapper: Hashable {
 
 enum NavigationRoute: Hashable {
     case locationSelection
-    case alarmDetail(coordinate: CoordinateWrapper, placeName: String?)
+    case alarmDetail(alarm: Alarm)
+
+    func hash(into hasher: inout Hasher) {
+        switch self {
+        case .locationSelection:
+            hasher.combine("locationSelection")
+        case .alarmDetail(let alarm):
+            hasher.combine(alarm.name)
+            hasher.combine(alarm.location?.latitude ?? 0)
+            hasher.combine(alarm.location?.longitude ?? 0)
+        }
+    }
+
+    static func == (lhs: NavigationRoute, rhs: NavigationRoute) -> Bool {
+        switch (lhs, rhs) {
+        case (.locationSelection, .locationSelection):
+            return true
+        case (.alarmDetail(let a1), .alarmDetail(let a2)):
+            return a1.name == a2.name &&
+                   a1.location?.latitude == a2.location?.latitude &&
+                   a1.location?.longitude == a2.location?.longitude
+        default:
+            return false
+        }
+    }
 }
 
 // NavigationModel to be shared across views for navigation state
@@ -48,9 +72,8 @@ struct AlarmListSwiftUIView: View {
                 ForEach(viewModel.alarms.indices, id: \.self) { index in
                     Button(action: {
                         let alarm = viewModel.alarms[index]
-                        if let location = alarm.location {
-                            let coordinate = CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude)
-                            navigationModel.path.append(.alarmDetail(coordinate: CoordinateWrapper(coordinate), placeName: alarm.name))
+                        if alarm.location != nil {
+                            navigationModel.path.append(.alarmDetail(alarm: alarm))
                         }
                     }) {
                         HStack {
@@ -93,8 +116,8 @@ struct AlarmListSwiftUIView: View {
                 switch route {
                 case .locationSelection:
                     LocationSelectionView()
-                case .alarmDetail(let coordinate, let placeName):
-                    AlarmDetailView(coordinate: coordinate.clCoordinate, placeName: placeName)
+                case .alarmDetail(let alarm):
+                    AlarmDetailView(alarm: alarm)
                 }
             }
         }
