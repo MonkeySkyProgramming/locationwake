@@ -170,6 +170,20 @@ class AlarmListViewModel: ObservableObject {
                 self.alarms = loadedAlarms
             }
         }
+        // データが読み込めなかった・空だった場合はサンプルアラームを追加
+        if self.alarms.isEmpty {
+            let sampleAlarm = Alarm(
+                name: "サンプルアラーム",
+                repeatWeekdays: [],
+                sound: "modan",
+                isAlarmEnabled: false,
+                isSoundEnabled: true,
+                location: Location(latitude: 34.702485, longitude: 135.495951),
+                radius: 300.0
+            )
+            self.alarms = [sampleAlarm]
+            saveAlarms()
+        }
     }
 
     func saveAlarms() {
