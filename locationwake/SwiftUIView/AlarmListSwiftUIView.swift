@@ -91,6 +91,9 @@ struct AlarmListSwiftUIView: View {
                                 Spacer()
                                 Toggle("", isOn: $viewModel.alarms[index].isAlarmEnabled)
                                     .labelsHidden()
+                                    .onChange(of: viewModel.alarms[index].isAlarmEnabled) { _ in
+                                        viewModel.saveAlarms()
+                                    }
                             }
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -103,6 +106,7 @@ struct AlarmListSwiftUIView: View {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button(action: { showSettings = true }) {
                             Image(systemName: "gear")
+                                .foregroundColor(Color("NavBarTintColor"))
                         }
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -110,6 +114,7 @@ struct AlarmListSwiftUIView: View {
                             navigationModel.path.append(.locationSelection)
                         }) {
                             Image(systemName: "plus")
+                                .foregroundColor(Color("NavBarTintColor"))
                         }
                     }
                 }
@@ -123,7 +128,8 @@ struct AlarmListSwiftUIView: View {
                     }
                 }
             }
-            .tint(Color("NavBarTintColor"))
+            .toolbarBackground(Color("NavBarColor"), for: .navigationBar)
+            .toolbar(.visible, for: .navigationBar)
             .environmentObject(viewModel)
             .environmentObject(navigationModel)
             .sheet(isPresented: $showSettings) {
@@ -135,6 +141,8 @@ struct AlarmListSwiftUIView: View {
             .onAppear {
                 viewModel.loadAlarms()
                 print("🔁 アラームリスト再読み込み onAppear")
+
+                LocationManager.shared.startMonitoring(alarms: viewModel.alarms)
 
                 if !hasSeenOnboarding {
                     showHelp = true
@@ -169,11 +177,13 @@ class AlarmListViewModel: ObservableObject {
         if let encoded = try? encoder.encode(alarms) {
             UserDefaults.standard.set(encoded, forKey: "SavedAlarms")
         }
+        LocationManager.shared.startMonitoring(alarms: alarms)
     }
 
     func deleteAlarm(at offsets: IndexSet) {
         alarms.remove(atOffsets: offsets)
         saveAlarms()
+        LocationManager.shared.startMonitoring(alarms: alarms)
     }
 }
 

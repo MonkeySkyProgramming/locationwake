@@ -46,7 +46,7 @@ struct BaseContainerView<Content: View>: View {
                         Image(systemName: "questionmark.circle")
                             .resizable()
                             .frame(width: 32, height: 32)
-                            .foregroundColor(Color("NavBarTintColor"))
+                            .foregroundColor(.primary)
                             .padding(.bottom, 90)
                             .padding(.trailing)
                     }
