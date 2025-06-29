@@ -38,120 +38,123 @@ struct AlarmDetailView: View {
     }
 
     var body: some View {
-        Form {
-            Section(header: Text("アラーム名")) {
-                TextField("アラーム名を入力", text: $alarmName)
-            }
-
-            Section(header: Text("位置情報")) {
-                Map(coordinateRegion: $mapRegion,
-                    annotationItems: [IdentifiableCoordinate(coordinate: selectedCoordinate)]) { item in
-                    MapAnnotation(coordinate: item.coordinate) {
-                        Image(systemName: "mappin")
-                            .foregroundColor(.red)
-                    }
+        VStack(spacing: 0) {
+            Form {
+                Section(header: Text("アラーム名")) {
+                    TextField("アラーム名を入力", text: $alarmName)
                 }
-                .overlay(
-                    GeometryReader { geo in
-                        let mapWidth = geo.size.width
-                        let metersPerPoint = (radius * 2) / (mapWidth / 1.2)  // Remove padding effect
-                        let visualRadius = radius / metersPerPoint
 
-                        ZStack {
-                            Circle()
-                                .fill(Color.blue.opacity(0.2))
-                                .frame(width: visualRadius * 2, height: visualRadius * 2)
-                            Circle()
-                                .stroke(Color.blue, lineWidth: 2)
-                                .frame(width: visualRadius * 2, height: visualRadius * 2)
+                Section(header: Text("位置情報")) {
+                    Map(coordinateRegion: $mapRegion,
+                        annotationItems: [IdentifiableCoordinate(coordinate: selectedCoordinate)]) { item in
+                        MapAnnotation(coordinate: item.coordinate) {
+                            Image(systemName: "mappin")
+                                .foregroundColor(.red)
                         }
-                        .position(x: geo.size.width / 2, y: geo.size.height / 2)
                     }
-                )
-                .aspectRatio(1, contentMode: .fit)
-                .listRowInsets(EdgeInsets())
-                .onChange(of: radius) { newValue in
-                    let paddingFactor = 1.2  // Add 20% extra margin
-                    mapRegion = MKCoordinateRegion(
-                        center: selectedCoordinate,
-                        latitudinalMeters: newValue * 2 * paddingFactor,
-                        longitudinalMeters: newValue * 2 * paddingFactor
+                    .overlay(
+                        GeometryReader { geo in
+                            let mapWidth = geo.size.width
+                            let metersPerPoint = (radius * 2) / (mapWidth / 1.2)  // Remove padding effect
+                            let visualRadius = radius / metersPerPoint
+
+                            ZStack {
+                                Circle()
+                                    .fill(Color.blue.opacity(0.2))
+                                    .frame(width: visualRadius * 2, height: visualRadius * 2)
+                                Circle()
+                                    .stroke(Color.blue, lineWidth: 2)
+                                    .frame(width: visualRadius * 2, height: visualRadius * 2)
+                            }
+                            .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                        }
                     )
+                    .aspectRatio(1, contentMode: .fit)
+                    .listRowInsets(EdgeInsets())
+                    .onChange(of: radius) { newValue in
+                        let paddingFactor = 1.2  // Add 20% extra margin
+                        mapRegion = MKCoordinateRegion(
+                            center: selectedCoordinate,
+                            latitudinalMeters: newValue * 2 * paddingFactor,
+                            longitudinalMeters: newValue * 2 * paddingFactor
+                        )
+                    }
+                    Text("緯度: \(selectedCoordinate.latitude), 経度: \(selectedCoordinate.longitude)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
                 }
-                Text("緯度: \(selectedCoordinate.latitude), 経度: \(selectedCoordinate.longitude)")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
 
-            Section(header: Text("半径")) {
-                Slider(value: $radius, in: 100...10000, step: 100)
-                Text("\(Int(radius)) メートル")
-            }
+                Section(header: Text("半径")) {
+                    Slider(value: $radius, in: 100...10000, step: 100)
+                    Text("\(Int(radius)) メートル")
+                }
 
-            Section(header: Text("アラーム音")) {
-                Toggle("音を鳴らす", isOn: $isSoundEnabled)
-                NavigationLink(destination: SoundSelectionView(selectedSound: $selectedSound)) {
-                    HStack {
-                        Text("選択中の音")
-                        Spacer()
-                        Text(selectedSound)
-                            .foregroundColor(.gray)
+                Section(header: Text("アラーム音")) {
+                    Toggle("音を鳴らす", isOn: $isSoundEnabled)
+                    NavigationLink(destination: SoundSelectionView(selectedSound: $selectedSound)) {
+                        HStack {
+                            Text("選択中の音")
+                            Spacer()
+                            Text(selectedSound)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                }
+
+                Section(header: Text("繰り返し")) {
+                    NavigationLink(destination: RepeatWeekdaySelectionView(selectedWeekdays: $repeatWeekdays)) {
+                        HStack {
+                            Text("選択された曜日")
+                            Spacer()
+                            Text(repeatWeekdays.sorted().map { ["日","月","火","水","木","金","土"][$0] }.joined(separator: ", "))
+                                .foregroundColor(.gray)
+                        }
+                    }
+                }
+
+                // Removed the "保存" button section from the bottom of the form
+            }
+            .navigationTitle("アラーム設定")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("保存") {
+                        let newAlarm = Alarm(
+                            name: alarmName,
+                            repeatWeekdays: Array(repeatWeekdays).sorted(),
+                            sound: selectedSound,
+                            isAlarmEnabled: true,
+                            isSoundEnabled: isSoundEnabled,
+                            location: Location(latitude: selectedCoordinate.latitude, longitude: selectedCoordinate.longitude),
+                            radius: radius
+                        )
+
+                        // Debug print
+                        print("🔍 保存するアラーム:")
+                        print("名前: \(newAlarm.name)")
+                        print("繰り返し: \(newAlarm.repeatWeekdays)")
+                        print("音: \(newAlarm.sound)")
+                        print("有効: \(newAlarm.isAlarmEnabled), 音有効: \(newAlarm.isSoundEnabled)")
+                        if let location = newAlarm.location {
+                            print("位置: 緯度 \(location.latitude), 経度 \(location.longitude)")
+                        } else {
+                            print("位置情報が設定されていません")
+                        }
+                        print("半径: \(newAlarm.radius)")
+
+                        let allAlarms = loadSavedAlarms()
+                        print("📦 現在保存されているアラーム一覧:")
+                        for (i, alarm) in allAlarms.enumerated() {
+                            print("🔔 [\(i)] \(alarm.name), 繰り返し: \(alarm.repeatWeekdays), 音: \(alarm.sound), 緯度: \(alarm.location?.latitude ?? 0), 経度: \(alarm.location?.longitude ?? 0), 半径: \(alarm.radius)")
+                        }
+
+                        saveAlarmSetting(newAlarm)
+                        viewModel.loadAlarms()
+                        navigationModel.path = []
                     }
                 }
             }
-
-            Section(header: Text("繰り返し")) {
-                NavigationLink(destination: RepeatWeekdaySelectionView(selectedWeekdays: $repeatWeekdays)) {
-                    HStack {
-                        Text("選択された曜日")
-                        Spacer()
-                        Text(repeatWeekdays.sorted().map { ["日","月","火","水","木","金","土"][$0] }.joined(separator: ", "))
-                            .foregroundColor(.gray)
-                    }
-                }
-            }
-
-            // Removed the "保存" button section from the bottom of the form
         }
-        .navigationTitle("アラーム設定")
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button("保存") {
-                    let newAlarm = Alarm(
-                        name: alarmName,
-                        repeatWeekdays: Array(repeatWeekdays).sorted(),
-                        sound: selectedSound,
-                        isAlarmEnabled: true,
-                        isSoundEnabled: isSoundEnabled,
-                        location: Location(latitude: selectedCoordinate.latitude, longitude: selectedCoordinate.longitude),
-                        radius: radius
-                    )
-
-                    // Debug print
-                    print("🔍 保存するアラーム:")
-                    print("名前: \(newAlarm.name)")
-                    print("繰り返し: \(newAlarm.repeatWeekdays)")
-                    print("音: \(newAlarm.sound)")
-                    print("有効: \(newAlarm.isAlarmEnabled), 音有効: \(newAlarm.isSoundEnabled)")
-                    if let location = newAlarm.location {
-                        print("位置: 緯度 \(location.latitude), 経度 \(location.longitude)")
-                    } else {
-                        print("位置情報が設定されていません")
-                    }
-                    print("半径: \(newAlarm.radius)")
-
-                    let allAlarms = loadSavedAlarms()
-                    print("📦 現在保存されているアラーム一覧:")
-                    for (i, alarm) in allAlarms.enumerated() {
-                        print("🔔 [\(i)] \(alarm.name), 繰り返し: \(alarm.repeatWeekdays), 音: \(alarm.sound), 緯度: \(alarm.location?.latitude ?? 0), 経度: \(alarm.location?.longitude ?? 0), 半径: \(alarm.radius)")
-                    }
-
-                    saveAlarmSetting(newAlarm)
-                    viewModel.loadAlarms()
-                    navigationModel.path = []
-                }
-            }
-        }
+        .padding(.bottom, 60) // Prevent overlap with AdBanner in root BaseContainerView
     }
     
     func saveAlarmSetting(_ alarm: Alarm) {

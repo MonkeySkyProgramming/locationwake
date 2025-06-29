@@ -15,47 +15,47 @@ struct LocationSelectionView: View {
     )
     @State private var matchingItems: [IdentifiableMapItem] = []
 
-var body: some View {
-    VStack(spacing: 0) {
-                Map(coordinateRegion: $region, annotationItems: matchingItems, annotationContent: { item in
-                    MapMarker(coordinate: item.mapItem.placemark.coordinate)
-                })
-                .frame(height: 350)
+    var body: some View {
+        VStack(spacing: 0) {
+            Map(coordinateRegion: $region, annotationItems: matchingItems, annotationContent: { item in
+                MapMarker(coordinate: item.mapItem.placemark.coordinate)
+            })
+            .frame(height: 350)
 
-                if matchingItems.isEmpty {
-                    Spacer()
-                    Text("検索結果がここに表示されます")
-                        .foregroundColor(.gray)
-                        .padding()
-                    Spacer()
-                } else {
-                    List(matchingItems) { item in
-                        NavigationLink(
-                            destination: AlarmDetailView(
-                                alarm: Alarm(
-                                    name: item.mapItem.name ?? "未命名",
-                                    repeatWeekdays: [],
-                                    sound: "未選択",
-                                    isAlarmEnabled: true,
-                                    isSoundEnabled: true,
-                                    location: Location(
-                                        latitude: item.mapItem.placemark.coordinate.latitude,
-                                        longitude: item.mapItem.placemark.coordinate.longitude
-                                    ),
-                                    radius: 3000
-                                )
+            if matchingItems.isEmpty {
+                Spacer()
+                Text("検索結果がここに表示されます")
+                    .foregroundColor(.gray)
+                    .padding()
+                Spacer()
+            } else {
+                List(matchingItems) { item in
+                    NavigationLink(
+                        destination: AlarmDetailView(
+                            alarm: Alarm(
+                                name: item.mapItem.name ?? "未命名",
+                                repeatWeekdays: [],
+                                sound: "未選択",
+                                isAlarmEnabled: true,
+                                isSoundEnabled: true,
+                                location: Location(
+                                    latitude: item.mapItem.placemark.coordinate.latitude,
+                                    longitude: item.mapItem.placemark.coordinate.longitude
+                                ),
+                                radius: 3000
                             )
-                        ) {
-                            VStack(alignment: .leading) {
-                                Text(item.mapItem.name ?? "不明な場所")
-                                Text(item.mapItem.placemark.title ?? "")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
-                            }
+                        )
+                    ) {
+                        VStack(alignment: .leading) {
+                            Text(item.mapItem.name ?? "不明な場所")
+                            Text(item.mapItem.placemark.title ?? "")
+                                .font(.caption)
+                                .foregroundColor(.gray)
                         }
                     }
                 }
             }
+        }
         .navigationTitle("場所を選択")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -70,6 +70,7 @@ var body: some View {
                 }
             }
         }
+        .background(Color.white.ignoresSafeArea())
     }
 
     private func performSearch(searchText: String) {

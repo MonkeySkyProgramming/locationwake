@@ -35,7 +35,6 @@
 		13E84A762C8951F700C933F6 /* modan.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A732C8951F700C933F6 /* modan.mp3 */; };
 		13E84A772C8951F700C933F6 /* siren.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A742C8951F700C933F6 /* siren.mp3 */; };
 		13E84A782C8951F700C933F6 /* kind.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A752C8951F700C933F6 /* kind.mp3 */; };
-		19C520D6C59602621C2C5816 /* Pods_locationwake.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F35D748A9EC20B23C6171DBB /* Pods_locationwake.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -91,8 +90,6 @@
 		13E84A732C8951F700C933F6 /* modan.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = modan.mp3; sourceTree = "<group>"; };
 		13E84A742C8951F700C933F6 /* siren.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = siren.mp3; sourceTree = "<group>"; };
 		13E84A752C8951F700C933F6 /* kind.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = kind.mp3; sourceTree = "<group>"; };
-		78A6F1DA53BF0A66CB951CA7 /* Pods-locationwake.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-locationwake.debug.xcconfig"; path = "Target Support Files/Pods-locationwake/Pods-locationwake.debug.xcconfig"; sourceTree = "<group>"; };
-		C1092AAAFB7B84C8DD6C6359 /* Pods-locationwake.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-locationwake.release.xcconfig"; path = "Target Support Files/Pods-locationwake/Pods-locationwake.release.xcconfig"; sourceTree = "<group>"; };
 		F35D748A9EC20B23C6171DBB /* Pods_locationwake.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_locationwake.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -106,7 +103,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				139920582DEEB9FF009E330E /* GoogleMobileAds in Frameworks */,
-				19C520D6C59602621C2C5816 /* Pods_locationwake.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -130,8 +126,6 @@
 		008D3ADEA2CDFE9839EEDB0E /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				78A6F1DA53BF0A66CB951CA7 /* Pods-locationwake.debug.xcconfig */,
-				C1092AAAFB7B84C8DD6C6359 /* Pods-locationwake.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -279,11 +273,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13E84A3F2C86B4F700C933F6 /* Build configuration list for PBXNativeTarget "locationwake" */;
 			buildPhases = (
-				D38DD622660E47C6E980F467 /* [CP] Check Pods Manifest.lock */,
 				13E84A112C86B4F500C933F6 /* Sources */,
 				13E84A122C86B4F500C933F6 /* Frameworks */,
 				13E84A132C86B4F500C933F6 /* Resources */,
-				8AFE6BFD0F43F9B09DF0A3F0 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -411,52 +403,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		8AFE6BFD0F43F9B09DF0A3F0 /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-locationwake/Pods-locationwake-resources-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			inputPaths = (
-			);
-			name = "[CP] Copy Pods Resources";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-locationwake/Pods-locationwake-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-locationwake/Pods-locationwake-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		D38DD622660E47C6E980F467 /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-locationwake-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		13E84A112C86B4F500C933F6 /* Sources */ = {
@@ -661,13 +607,13 @@
 		};
 		13E84A402C86B4F700C933F6 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 78A6F1DA53BF0A66CB951CA7 /* Pods-locationwake.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = A9Q2MN2H6M;
+				DSTROOT = "";
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = locationwake/Resources/Info.plist;
@@ -698,13 +644,13 @@
 		};
 		13E84A412C86B4F700C933F6 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C1092AAAFB7B84C8DD6C6359 /* Pods-locationwake.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = A9Q2MN2H6M;
+				DSTROOT = "";
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = locationwake/Resources/Info.plist;

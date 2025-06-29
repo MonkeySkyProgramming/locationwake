@@ -67,96 +67,83 @@ struct AlarmListSwiftUIView: View {
     @StateObject private var navigationModel = NavigationModel()
 
     var body: some View {
-        NavigationStack(path: $navigationModel.path) {
-            List {
-                ForEach(viewModel.alarms.indices, id: \.self) { index in
-                    Button(action: {
-                        let alarm = viewModel.alarms[index]
-                        if alarm.location != nil {
-                            navigationModel.path.append(.alarmDetail(alarm: alarm))
-                        }
-                    }) {
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(viewModel.alarms[index].name)
-                                    .font(.headline)
-                                let alarm = viewModel.alarms[index]
-                                let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
-                                let repeatText = (alarm.repeatWeekdays?.isEmpty ?? true) ? "" : "（" + alarm.repeatWeekdays!.sorted().map { weekdays[$0] }.joined(separator: "・") + "）"
-                                Text((alarm.isAlarmEnabled ? "有効" : "無効") + repeatText)
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
+        BaseContainerView {
+            NavigationStack(path: $navigationModel.path) {
+                List {
+                    ForEach(viewModel.alarms.indices, id: \.self) { index in
+                        Button(action: {
+                            let alarm = viewModel.alarms[index]
+                            if alarm.location != nil {
+                                navigationModel.path.append(.alarmDetail(alarm: alarm))
                             }
-                            Spacer()
-                            Toggle("", isOn: $viewModel.alarms[index].isAlarmEnabled)
-                                .labelsHidden()
+                        }) {
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(viewModel.alarms[index].name)
+                                        .font(.headline)
+                                    let alarm = viewModel.alarms[index]
+                                    let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
+                                    let repeatText = (alarm.repeatWeekdays?.isEmpty ?? true) ? "" : "（" + alarm.repeatWeekdays!.sorted().map { weekdays[$0] }.joined(separator: "・") + "）"
+                                    Text((alarm.isAlarmEnabled ? "有効" : "無効") + repeatText)
+                                        .font(.subheadline)
+                                        .foregroundColor(.gray)
+                                }
+                                Spacer()
+                                Toggle("", isOn: $viewModel.alarms[index].isAlarmEnabled)
+                                    .labelsHidden()
+                            }
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .onDelete(perform: viewModel.deleteAlarm)
+                }
+                .navigationTitle("アラーム一覧")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button(action: { showSettings = true }) {
+                            Image(systemName: "gear")
                         }
                     }
-                    .buttonStyle(PlainButtonStyle())
-                }
-                .onDelete(perform: viewModel.deleteAlarm)
-            }
-            .navigationTitle("アラーム一覧")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { showSettings = true }) {
-                        Image(systemName: "gear")
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            navigationModel.path.append(.locationSelection)
+                        }) {
+                            Image(systemName: "plus")
+                        }
                     }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        navigationModel.path.append(.locationSelection)
-                    }) {
-                        Image(systemName: "plus")
+                .navigationDestination(for: NavigationRoute.self) { route in
+                    switch route {
+                    case .locationSelection:
+                        LocationSelectionView()
+                    case .alarmDetail(let alarm):
+                        AlarmDetailView(alarm: alarm)
+                            .environmentObject(viewModel)
                     }
                 }
             }
-            .navigationDestination(for: NavigationRoute.self) { route in
-                switch route {
-                case .locationSelection:
-                    LocationSelectionView()
-                case .alarmDetail(let alarm):
-                    AlarmDetailView(alarm: alarm)
-                        .environmentObject(viewModel)
-                }
+            .environmentObject(viewModel)
+            .environmentObject(navigationModel)
+            .sheet(isPresented: $showSettings) {
+                StoryboardViewControllerWrapper(storyboardName: "Main", viewControllerIdentifier: "SettingViewController")
             }
-        }
-        .environmentObject(viewModel)
-        .environmentObject(navigationModel)
-        .sheet(isPresented: $showSettings) {
-            StoryboardViewControllerWrapper(storyboardName: "Main", viewControllerIdentifier: "SettingViewController")
-        }
-        .sheet(isPresented: $showHelp) {
-            StoryboardViewControllerWrapper(storyboardName: "Main", viewControllerIdentifier: "OnboardingViewController")
-        }
-        .onAppear {
-            viewModel.loadAlarms()
-            print("🔁 アラームリスト再読み込み onAppear")
+            .sheet(isPresented: $showHelp) {
+                StoryboardViewControllerWrapper(storyboardName: "Main", viewControllerIdentifier: "OnboardingViewController")
+            }
+            .onAppear {
+                viewModel.loadAlarms()
+                print("🔁 アラームリスト再読み込み onAppear")
 
-            // 初回のみオンボーディング表示
-            if !hasSeenOnboarding {
-                showHelp = true
-                hasSeenOnboarding = true
-            }
-        }
-        .overlay(
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        showHelp = true
-                    }) {
-                        Image(systemName: "questionmark.circle")
-                            .resizable()
-                            .frame(width: 32, height: 32)
-                            .foregroundColor(.blue)
-                            .padding()
-                    }
+                if !hasSeenOnboarding {
+                    showHelp = true
+                    hasSeenOnboarding = true
                 }
             }
-        )
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowHelpOverlay"))) { _ in
+                showHelp = true
+            }
+        }
     }
 }
 
