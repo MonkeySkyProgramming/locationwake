@@ -25,6 +25,7 @@ struct CoordinateWrapper: Hashable {
 enum NavigationRoute: Hashable {
     case locationSelection
     case alarmDetail(alarm: Alarm)
+    case settings
 
     func hash(into hasher: inout Hasher) {
         switch self {
@@ -34,6 +35,8 @@ enum NavigationRoute: Hashable {
             hasher.combine(alarm.name)
             hasher.combine(alarm.location?.latitude ?? 0)
             hasher.combine(alarm.location?.longitude ?? 0)
+        case .settings:
+            hasher.combine("settings")
         }
     }
 
@@ -45,6 +48,8 @@ enum NavigationRoute: Hashable {
             return a1.name == a2.name &&
                    a1.location?.latitude == a2.location?.latitude &&
                    a1.location?.longitude == a2.location?.longitude
+        case (.settings, .settings):
+            return true
         default:
             return false
         }
@@ -104,7 +109,9 @@ struct AlarmListSwiftUIView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
-                        Button(action: { showSettings = true }) {
+                        Button(action: {
+                            navigationModel.path.append(.settings)
+                        }) {
                             Image(systemName: "gear")
                                 .foregroundColor(Color("NavBarTintColor"))
                         }
@@ -125,6 +132,8 @@ struct AlarmListSwiftUIView: View {
                     case .alarmDetail(let alarm):
                         AlarmDetailView(alarm: alarm)
                             .environmentObject(viewModel)
+                    case .settings:
+                        SettingView()
                     }
                 }
             }
@@ -132,9 +141,6 @@ struct AlarmListSwiftUIView: View {
             .toolbar(.visible, for: .navigationBar)
             .environmentObject(viewModel)
             .environmentObject(navigationModel)
-            .sheet(isPresented: $showSettings) {
-                StoryboardViewControllerWrapper(storyboardName: "Main", viewControllerIdentifier: "SettingViewController")
-            }
             .sheet(isPresented: $showHelp) {
                 StoryboardViewControllerWrapper(storyboardName: "Main", viewControllerIdentifier: "OnboardingViewController")
             }
