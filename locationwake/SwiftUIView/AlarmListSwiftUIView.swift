@@ -123,6 +123,7 @@ struct AlarmListSwiftUIView: View {
                     }
                 }
             }
+            .tint(Color("NavBarTintColor"))
             .environmentObject(viewModel)
             .environmentObject(navigationModel)
             .sheet(isPresented: $showSettings) {

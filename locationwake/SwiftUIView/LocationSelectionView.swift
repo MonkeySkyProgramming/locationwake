@@ -62,6 +62,7 @@ struct LocationSelectionView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack {
                     Image(systemName: "magnifyingglass")
+                        .foregroundColor(Color("NavBarTintColor"))
                     TextField("場所を検索", text: $searchText, onCommit: {
                         performSearch(searchText: searchText)
                     })

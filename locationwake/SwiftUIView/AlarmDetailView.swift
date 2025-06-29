@@ -151,6 +151,7 @@ struct AlarmDetailView: View {
                         viewModel.loadAlarms()
                         navigationModel.path = []
                     }
+                    .foregroundColor(Color("NavBarTintColor"))
                 }
             }
         }
