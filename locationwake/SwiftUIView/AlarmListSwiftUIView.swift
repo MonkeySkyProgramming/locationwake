@@ -76,32 +76,33 @@ struct AlarmListSwiftUIView: View {
             NavigationStack(path: $navigationModel.path) {
                 List {
                     ForEach(viewModel.alarms.indices, id: \.self) { index in
-                        Button(action: {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(viewModel.alarms[index].name)
+                                    .font(.headline)
+                                let alarm = viewModel.alarms[index]
+                                let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
+                                let repeatText = (alarm.repeatWeekdays?.isEmpty ?? true) ? "" : "（" + alarm.repeatWeekdays!.sorted().map { weekdays[$0] }.joined(separator: "・") + "）"
+                                Text((alarm.isAlarmEnabled ? "有効" : "無効") + repeatText)
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                            }
+
+                            Spacer()
+
+                            Toggle("", isOn: $viewModel.alarms[index].isAlarmEnabled)
+                                .labelsHidden()
+                                .onChange(of: viewModel.alarms[index].isAlarmEnabled) { _ in
+                                    viewModel.saveAlarms()
+                                }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
                             let alarm = viewModel.alarms[index]
                             if alarm.location != nil {
                                 navigationModel.path.append(.alarmDetail(alarm: alarm))
                             }
-                        }) {
-                            HStack {
-                                VStack(alignment: .leading) {
-                                    Text(viewModel.alarms[index].name)
-                                        .font(.headline)
-                                    let alarm = viewModel.alarms[index]
-                                    let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
-                                    let repeatText = (alarm.repeatWeekdays?.isEmpty ?? true) ? "" : "（" + alarm.repeatWeekdays!.sorted().map { weekdays[$0] }.joined(separator: "・") + "）"
-                                    Text((alarm.isAlarmEnabled ? "有効" : "無効") + repeatText)
-                                        .font(.subheadline)
-                                        .foregroundColor(.gray)
-                                }
-                                Spacer()
-                                Toggle("", isOn: $viewModel.alarms[index].isAlarmEnabled)
-                                    .labelsHidden()
-                                    .onChange(of: viewModel.alarms[index].isAlarmEnabled) { _ in
-                                        viewModel.saveAlarms()
-                                    }
-                            }
                         }
-                        .buttonStyle(PlainButtonStyle())
                     }
                     .onDelete(perform: viewModel.deleteAlarm)
                 }
