@@ -150,11 +150,20 @@ class AlarmDetailViewController: BaseViewController, CLLocationManagerDelegate, 
             sound: sound ,
             isAlarmEnabled: true,
             isSoundEnabled: soundIsEnabled,
+            isVibrationEnabled: true,
             location: Location(latitude: latitude, longitude: longitude),
             radius: radius
         )
 
         saveAlarmSetting(newAlarm)
+
+        LocationManager.shared.skipNames.insert(alarmName)
+
+        // 2秒後に監視を開始（UserDefaultsの反映を保証）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            LocationManager.shared.startMonitoring(alarms: self.loadSavedAlarms(), skipImmediateCheck: true)
+        }
+
         delegate?.didSaveAlarm(newAlarm)
         // アラーム情報をデバッグ出力
         print("アラーム名: \(alarmName)")
@@ -171,6 +180,12 @@ class AlarmDetailViewController: BaseViewController, CLLocationManagerDelegate, 
 
     // アラーム設定を保存する処理
     func saveAlarmSetting(_ alarm: Alarm) {
+        let key = "SkipTrigger_\(alarm.name)"
+        UserDefaults.standard.set(true, forKey: key)
+        let timestampKey = "SkipTriggerAt_\(alarm.name)"
+        UserDefaults.standard.set(Date(), forKey: timestampKey)
+        UserDefaults.standard.synchronize()
+
         var savedAlarms = loadSavedAlarms()
         if let index = savedAlarms.firstIndex(where: { $0.name == alarm.name }) {
             savedAlarms[index] = alarm

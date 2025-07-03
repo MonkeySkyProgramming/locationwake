@@ -83,7 +83,9 @@ struct AlarmListSwiftUIView: View {
                                 let alarm = viewModel.alarms[index]
                                 let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
                                 let repeatText = (alarm.repeatWeekdays?.isEmpty ?? true) ? "" : "（" + alarm.repeatWeekdays!.sorted().map { weekdays[$0] }.joined(separator: "・") + "）"
-                                Text((alarm.isAlarmEnabled ? "有効" : "無効") + repeatText)
+                                let vibrationText = alarm.isVibrationEnabled ? "・バイブレーション" : ""
+                                let soundText = alarm.isSoundEnabled ? "・\(alarm.sound)" : ""
+                                Text((alarm.isAlarmEnabled ? "有効" : "無効") + soundText + vibrationText  + repeatText)
                                     .font(.subheadline)
                                     .foregroundColor(.gray)
                             }
@@ -149,6 +151,7 @@ struct AlarmListSwiftUIView: View {
                 viewModel.loadAlarms()
                 print("🔁 アラームリスト再読み込み onAppear")
 
+                print("🧭 startMonitoringに渡すアラーム: \(viewModel.alarms.map { "\($0.name): \($0.isAlarmEnabled)" })")
                 LocationManager.shared.startMonitoring(alarms: viewModel.alarms)
 
                 if !hasSeenOnboarding {
@@ -159,6 +162,13 @@ struct AlarmListSwiftUIView: View {
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowHelpOverlay"))) { _ in
                 showHelp = true
             }
+            .onChange(of: navigationModel.path) { newPath in
+                if newPath.isEmpty {
+                    print("他の画面から戻ったため再読み込み")
+                    viewModel.loadAlarms()
+                    LocationManager.shared.startMonitoring(alarms: viewModel.alarms)
+                }
+            }
         }
     }
 }
@@ -168,6 +178,7 @@ class AlarmListViewModel: ObservableObject {
 
     init() {
         loadAlarms()
+        NotificationCenter.default.addObserver(self, selector: #selector(handleAlarmUpdated), name: Notification.Name("AlarmUpdated"), object: nil)
     }
 
     func loadAlarms() {
@@ -175,6 +186,7 @@ class AlarmListViewModel: ObservableObject {
             let decoder = JSONDecoder()
             if let loadedAlarms = try? decoder.decode([Alarm].self, from: savedAlarms) {
                 self.alarms = loadedAlarms
+                print("✅ 読み込み成功: \(loadedAlarms.map { $0.name })")
             }
         }
         // データが読み込めなかった・空だった場合はサンプルアラームを追加
@@ -185,10 +197,12 @@ class AlarmListViewModel: ObservableObject {
                 sound: "modan",
                 isAlarmEnabled: false,
                 isSoundEnabled: true,
+                isVibrationEnabled: false,
                 location: Location(latitude: 34.702485, longitude: 135.495951),
                 radius: 300.0
             )
             self.alarms = [sampleAlarm]
+            print("📦 アラームが空のためサンプルアラームを追加")
             saveAlarms()
         }
     }
@@ -197,6 +211,7 @@ class AlarmListViewModel: ObservableObject {
         let encoder = JSONEncoder()
         if let encoded = try? encoder.encode(alarms) {
             UserDefaults.standard.set(encoded, forKey: "SavedAlarms")
+            print("💾 アラーム保存: \(alarms.map { $0.name })")
         }
         LocationManager.shared.startMonitoring(alarms: alarms)
     }
@@ -205,6 +220,12 @@ class AlarmListViewModel: ObservableObject {
         alarms.remove(atOffsets: offsets)
         saveAlarms()
         LocationManager.shared.startMonitoring(alarms: alarms)
+    }
+
+    @objc private func handleAlarmUpdated() {
+        DispatchQueue.main.async {
+            self.loadAlarms()
+        }
     }
 }
 

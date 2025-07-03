@@ -11,6 +11,7 @@ struct Alarm: Codable {
     var sound: String
     var isAlarmEnabled: Bool // アラーム自体のオンオフ
     var isSoundEnabled: Bool // アラーム音のオンオフ
+    var isVibrationEnabled: Bool // バイブレーションのオンオフ
     var location: Location?
     var radius: Double?
     

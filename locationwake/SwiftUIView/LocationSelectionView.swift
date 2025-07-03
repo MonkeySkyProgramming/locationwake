@@ -38,6 +38,7 @@ struct LocationSelectionView: View {
                                 sound: "未選択",
                                 isAlarmEnabled: true,
                                 isSoundEnabled: true,
+                                isVibrationEnabled: true,
                                 location: Location(
                                     latitude: item.mapItem.placemark.coordinate.latitude,
                                     longitude: item.mapItem.placemark.coordinate.longitude

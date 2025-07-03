@@ -43,6 +43,9 @@ struct SettingView: View {
                 Button("アラームをテスト再生") {
                     SoundPlayer.shared.play(soundName: "modan", forDuration: 5)
                 }
+                Button("バイブレーションをテスト") {
+                    HapticManager.triggerRepeated(.systemVibrate, count: 10, interval: 1.0)
+                }
             }
 
             Section(header: Text("サポート")) {

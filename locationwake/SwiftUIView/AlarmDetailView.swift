@@ -13,6 +13,7 @@ struct AlarmDetailView: View {
     @State private var selectedSound: String = "未選択"
     @State private var repeatWeekdays: Set<Int> = []
     @State private var mapRegion: MKCoordinateRegion
+    @State private var isVibrationEnabled: Bool = true
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var navigationModel: NavigationModel
     @EnvironmentObject var viewModel: AlarmListViewModel
@@ -35,6 +36,7 @@ struct AlarmDetailView: View {
             span: MKCoordinateSpan(
                 latitudeDelta: (alarm.radius ?? 3000) / 80000,
                 longitudeDelta: (alarm.radius ?? 3000) / 80000)))
+        _isVibrationEnabled = State(initialValue: alarm.isVibrationEnabled)
     }
 
     var body: some View {
@@ -101,6 +103,10 @@ struct AlarmDetailView: View {
                     }
                 }
 
+                Section(header: Text("バイブレーション")) {
+                    Toggle("バイブレーションを有効にする", isOn: $isVibrationEnabled)
+                }
+
                 Section(header: Text("繰り返し")) {
                     NavigationLink(destination: RepeatWeekdaySelectionView(selectedWeekdays: $repeatWeekdays)) {
                         HStack {
@@ -124,6 +130,7 @@ struct AlarmDetailView: View {
                             sound: selectedSound,
                             isAlarmEnabled: true,
                             isSoundEnabled: isSoundEnabled,
+                            isVibrationEnabled: isVibrationEnabled,
                             location: Location(latitude: selectedCoordinate.latitude, longitude: selectedCoordinate.longitude),
                             radius: radius
                         )
@@ -134,6 +141,7 @@ struct AlarmDetailView: View {
                         print("繰り返し: \(newAlarm.repeatWeekdays)")
                         print("音: \(newAlarm.sound)")
                         print("有効: \(newAlarm.isAlarmEnabled), 音有効: \(newAlarm.isSoundEnabled)")
+                        print("バイブレーション有効: \(newAlarm.isVibrationEnabled)")
                         if let location = newAlarm.location {
                             print("位置: 緯度 \(location.latitude), 経度 \(location.longitude)")
                         } else {
@@ -146,6 +154,9 @@ struct AlarmDetailView: View {
                         for (i, alarm) in allAlarms.enumerated() {
                             print("🔔 [\(i)] \(alarm.name), 繰り返し: \(alarm.repeatWeekdays), 音: \(alarm.sound), 緯度: \(alarm.location?.latitude ?? 0), 経度: \(alarm.location?.longitude ?? 0), 半径: \(alarm.radius)")
                         }
+
+                        let skipTimestampKey = "SkipTriggerAt_\(newAlarm.name)"
+                        UserDefaults.standard.set(Date(), forKey: skipTimestampKey)
 
                         saveAlarmSetting(newAlarm)
                         viewModel.loadAlarms()

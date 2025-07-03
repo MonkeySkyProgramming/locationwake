@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		130C18062DFAA17500A9F556 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 130C18052DFAA17500A9F556 /* .gitignore */; };
+		13724FC12E125C420071055E /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13724FC02E125C3E0071055E /* HapticManager.swift */; };
 		137DE3912D77743200E22525 /* OnboardingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137DE3902D77743200E22525 /* OnboardingViewController.swift */; };
 		139920582DEEB9FF009E330E /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 139920572DEEB9FF009E330E /* GoogleMobileAds */; };
 		13B7D32D2CB3D40600BDAD6C /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 13B7D32C2CB3D40600BDAD6C /* LaunchScreen.storyboard */; };
@@ -56,6 +57,7 @@
 
 /* Begin PBXFileReference section */
 		130C18052DFAA17500A9F556 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		13724FC02E125C3E0071055E /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
 		137DE3902D77743200E22525 /* OnboardingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewController.swift; sourceTree = "<group>"; };
 		13BF0DDF2D35EAA600D23495 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
 		13BF0DE02D35EAA600D23495 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Main.strings; sourceTree = "<group>"; };
@@ -216,6 +218,7 @@
 			children = (
 				13E84A592C86C45F00C933F6 /* AlarmScheduler.swift */,
 				13E84A5B2C86C46B00C933F6 /* SoundPlayer.swift */,
+				13724FC02E125C3E0071055E /* HapticManager.swift */,
 			);
 			path = Service;
 			sourceTree = "<group>";
@@ -405,6 +408,7 @@
 				13E84A502C86C32C00C933F6 /* Sound.swift in Sources */,
 				13E84A562C86C44200C933F6 /* AlarmDetailViewController.swift in Sources */,
 				13E84A5E2C86C48C00C933F6 /* DateFormatter+Extensions.swift in Sources */,
+				13724FC12E125C420071055E /* HapticManager.swift in Sources */,
 				13E84A5C2C86C46B00C933F6 /* SoundPlayer.swift in Sources */,
 				13D2F0482D730F6700A35BD9 /* BaseViewController.swift in Sources */,
 				13E84A722C88AA2400C933F6 /* AlarmTableViewCell.swift in Sources */,
@@ -622,7 +626,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.5;
+				MARKETING_VERSION = 1.51;
 				PRODUCT_BUNDLE_IDENTIFIER = monkey.locationwake;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -659,7 +663,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.5;
+				MARKETING_VERSION = 1.51;
 				PRODUCT_BUNDLE_IDENTIFIER = monkey.locationwake;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

@@ -237,6 +237,7 @@ class AlarmListViewController: BaseViewController, UITableViewDelegate, UITableV
                 sound: "modan",
                 isAlarmEnabled: false, // ← アラームはオフ
                 isSoundEnabled: true,
+                isVibrationEnabled: true,
                 location: Location(latitude: 34.702485, longitude: 135.495951), // 大阪駅
                 radius: 300.0
             )

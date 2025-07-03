@@ -2,6 +2,7 @@ import Foundation
 import CoreLocation
 import UserNotifications
 import AVFoundation
+import UIKit
 
 protocol LocationManagerDelegate: AnyObject {
     func didUpdateAlarmStatus(_ alarm: Alarm)
@@ -13,16 +14,20 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
     private var locationManager: CLLocationManager
     private var monitoringTimer: Timer?
+    private var vibrationTimer: Timer?
 
     var alarms: [Alarm] = [] // アラームリスト
+
+    var skipNames: Set<String> = []
 
     private var soundPlayer = SoundPlayer.shared
 
     override init() {
         locationManager = CLLocationManager()
         super.init()
-        locationManager.delegate = self
         locationManager.requestAlwaysAuthorization()
+        locationManager.delegate = self
+        locationManager.startUpdatingLocation()
 
         // 通知の許可をリクエスト
         NotificationManager.shared.requestNotificationPermission()
@@ -40,8 +45,31 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     }
 
     // Geofenceの監視を開始する
-    func startMonitoring(alarms: [Alarm]) {
+    func startMonitoring(alarms: [Alarm], skipImmediateCheck: Bool = false) {
         self.alarms = alarms // アラームを保持
+        if let currentLocation = locationManager.location?.coordinate, !skipImmediateCheck {
+            for alarm in alarms {
+                if UserDefaults.standard.bool(forKey: "SkipTrigger_\(alarm.name)") {
+                    print("🚫 \(alarm.name) は保存直後のため startMonitoring でトリガーをスキップ")
+                    UserDefaults.standard.set(false, forKey: "SkipTrigger_\(alarm.name)") // Reset flag
+                    continue
+                }
+                guard let location = alarm.location, let radius = alarm.radius else { continue }
+                if alarm.hasTriggered {
+                    print("⏹️ トリガー済みアラームをスキップ: \(alarm.name)")
+                    continue
+                }
+                let region = CLCircularRegion(
+                    center: CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude),
+                    radius: min(radius, 1000.0),
+                    identifier: alarm.name
+                )
+                if region.contains(currentLocation) {
+                    print("🚨 現在地は \(alarm.name) のジオフェンス内 → 即時トリガー")
+                    triggerAlarm(for: alarm)
+                }
+            }
+        }
         print("受け取ったアラームリスト: \(alarms.map { $0.name })")
         print("現在の監視領域(開始前): \(locationManager.monitoredRegions.map { $0.identifier })")
 
@@ -84,9 +112,12 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     // 新しいジオフェンスを追加
     func addGeofences(for alarms: [Alarm]) {
         for alarm in alarms {
+
+            print("⚙️ addGeofence 対象: \(alarm.name), 緯度: \(alarm.location?.latitude ?? 0), 半径: \(alarm.radius ?? 0), 有効: \(alarm.isAlarmEnabled)")
             // すべてのアラームに対してジオフェンスを設定するため、isAlarmEnabled のチェックは削除
             guard let location = alarm.location, let radius = alarm.radius else {
                 print("アラーム \(alarm.name) の位置情報または半径が無効です")
+                print("⛔ スキップされたアラーム: \(alarm.name)")
                 continue
             }
             // すでに監視中の場合はスキップ
@@ -158,6 +189,28 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
     // アラームをトリガーする処理（サウンド名を使用）
     private func triggerAlarm(for alarm: Alarm) {
+        if skipNames.contains(alarm.name) {
+            print("🚫 \(alarm.name) は保存直後（メモリ）でトリガーをスキップ")
+            skipNames.remove(alarm.name)
+            return
+        }
+        let skipKey = "SkipTrigger_\(alarm.name)"
+        if UserDefaults.standard.bool(forKey: skipKey) {
+            print("🚫 \(alarm.name) は保存直後のためトリガーをスキップ（フラグによる）")
+            UserDefaults.standard.set(false, forKey: skipKey) // Reset after skipping
+            return
+        }
+        let skipTimestampKey = "SkipTriggerAt_\(alarm.name)"
+        if let savedDate = UserDefaults.standard.object(forKey: skipTimestampKey) as? Date {
+            let interval = Date().timeIntervalSince(savedDate)
+            if interval < 10 {
+                print("⏳ 保存から \(interval) 秒未満のため \(alarm.name) トリガーをスキップ")
+                return
+            } else {
+                UserDefaults.standard.removeObject(forKey: skipTimestampKey)
+            }
+        }
+
         // 通知を削除してから新規スケジュール
         NotificationManager.shared.removeNotification(identifier: alarm.name)
         NotificationManager.shared.scheduleNotification(
@@ -170,9 +223,16 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         if alarm.isSoundEnabled {
             soundPlayer.playSound(named: soundName)
         }
+        if alarm.isVibrationEnabled {
+            HapticManager.triggerRepeated(.impactMedium, count: 15, interval: 1.0)
+            NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+                // For future extension: stop continuous vibration if needed
+            }
+        }
 
         // アラームが作動したので isAlarmEnabled をオフにする
         if let index = alarms.firstIndex(where: { $0.name == alarm.name }) {
+            // 繰り返し曜日が未設定または空の場合のみ isAlarmEnabled をオフにする
             if alarms[index].repeatWeekdays?.isEmpty ?? true {
                 alarms[index].isAlarmEnabled = false
             }
@@ -180,10 +240,17 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             saveAlarms() // アラーム設定を保存
             print("\(alarm.name) のアラームがトリガーされ、無効化されました。")
             delegate?.didUpdateAlarmStatus(alarms[index])
+            NotificationCenter.default.post(name: Notification.Name("AlarmUpdated"), object: nil)
         }
 
         // トリガー後に監視領域を再設定
-        startMonitoring(alarms: alarms)
+        startMonitoring(alarms: alarms, skipImmediateCheck: false)
+
+        // 追加: 現在のアラーム設定一覧を出力
+        print("📋 現在のアラーム設定一覧:")
+        for a in alarms {
+            print("🔔 \(a.name) | 有効: \(a.isAlarmEnabled) | トリガー済み: \(a.hasTriggered) | 繰り返し曜日: \(a.repeatWeekdays ?? []) | サウンド: \(a.sound) | バイブ: \(a.isVibrationEnabled) | 座標: \(a.location?.latitude ?? 0), \(a.location?.longitude ?? 0) | 半径: \(a.radius ?? 0)")
+        }
     }
 
     // アラームを保存するメソッド
@@ -207,5 +274,62 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             }
         }
         print("監視解除後の領域: \(locationManager.monitoredRegions.map { $0.identifier })")
+    }
+    // ユーザーの現在位置を継続的に出力
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
+        print("📍 現在位置: 緯度 \(location.coordinate.latitude), 経度 \(location.coordinate.longitude)")
+        // 位置更新時、すでに監視領域内であれば即時トリガー
+        for alarm in alarms {
+            print("🔎 チェック中: \(alarm.name) / hasTriggered: \(alarm.hasTriggered)")
+            guard let loc = alarm.location, let radius = alarm.radius else { continue }
+            let userLoc = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+            let alarmLoc = CLLocation(latitude: loc.latitude, longitude: loc.longitude)
+            let distance = userLoc.distance(from: alarmLoc)
+            print("📏 \(alarm.name) までの距離: \(Int(distance)) m")
+            let region = CLCircularRegion(
+                center: CLLocationCoordinate2D(latitude: loc.latitude, longitude: loc.longitude),
+                radius: min(radius, 1000.0),
+                identifier: alarm.name
+            )
+            let skipTimestampKey = "SkipTriggerAt_\(alarm.name)"
+            if let savedDate = UserDefaults.standard.object(forKey: skipTimestampKey) as? Date {
+                let interval = Date().timeIntervalSince(savedDate)
+                if interval < 10 {
+                    print("⏳ didUpdateLocation: 保存直後 \(interval) 秒 → トリガー抑制")
+                    continue
+                }
+            }
+
+            if region.contains(location.coordinate), !alarm.hasTriggered {
+                // 保存直後スキップ条件（メモリ）
+                if skipNames.contains(alarm.name) {
+                    print("🚫 didUpdateLocation: \(alarm.name) はメモリ上でスキップ")
+                    skipNames.remove(alarm.name)
+                    continue
+                }
+
+                // 保存直後スキップ条件（UserDefaultsフラグ）
+                let skipKey = "SkipTrigger_\(alarm.name)"
+                if UserDefaults.standard.bool(forKey: skipKey) {
+                    print("🚫 didUpdateLocation: \(alarm.name) は UserDefaults フラグでスキップ")
+                    UserDefaults.standard.set(false, forKey: skipKey)
+                    continue
+                }
+
+                // 保存直後スキップ条件（UserDefaultsタイムスタンプ）
+                let skipTimestampKey = "SkipTriggerAt_\(alarm.name)"
+                if let savedDate = UserDefaults.standard.object(forKey: skipTimestampKey) as? Date {
+                    let interval = Date().timeIntervalSince(savedDate)
+                    if interval < 10 {
+                        print("⏳ didUpdateLocation: 保存直後 \(interval) 秒 → トリガー抑制")
+                        continue
+                    }
+                }
+
+                print("🚨 didUpdateLocation中に \(alarm.name) に既に入っていた → 即時トリガー")
+                triggerAlarm(for: alarm)
+            }
+        }
     }
 }
