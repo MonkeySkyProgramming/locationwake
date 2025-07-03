@@ -615,7 +615,6 @@
 				INFOPLIST_FILE = locationwake/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "起きなはれ";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "このアプリは設定した場所に到達した時にアラームを鳴らすために位置情報を使用します。位置情報がないとアラーム機能が動作しません。";
-				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "このアプリはバックグラウンドでも設定した場所に到達した時にアラームを鳴らすために位置情報を常に使用します。位置情報がないとアラーム機能が動作しません。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "このアプリは設定した場所に到達した時にアラームを鳴らすために位置情報を使用します。位置情報がないとアラーム機能が動作しません。";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -652,7 +651,6 @@
 				INFOPLIST_FILE = locationwake/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "起きなはれ";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "このアプリは設定した場所に到達した時にアラームを鳴らすために位置情報を使用します。位置情報がないとアラーム機能が動作しません。";
-				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "このアプリはバックグラウンドでも設定した場所に到達した時にアラームを鳴らすために位置情報を常に使用します。位置情報がないとアラーム機能が動作しません。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "このアプリは設定した場所に到達した時にアラームを鳴らすために位置情報を使用します。位置情報がないとアラーム機能が動作しません。";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;

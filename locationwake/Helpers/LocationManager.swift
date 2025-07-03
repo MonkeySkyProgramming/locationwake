@@ -25,9 +25,32 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     override init() {
         locationManager = CLLocationManager()
         super.init()
-        locationManager.requestAlwaysAuthorization()
+        // 必要な設定: バックグラウンド位置情報更新を有効化し、自動停止を無効化
+        locationManager.allowsBackgroundLocationUpdates = true
+        locationManager.pausesLocationUpdatesAutomatically = false
+        let currentStatus = CLLocationManager.authorizationStatus()
+        if currentStatus != .authorizedAlways {
+            print("📣 位置情報の常に許可が必要です。リクエスト中...")
+            locationManager.requestAlwaysAuthorization()
+        } else {
+            print("✅ CLLocationManager.authorizationStatus により常に許可が検出されました")
+        }
         locationManager.delegate = self
+        // 認可ステータスの変化確認のために毎回チェック
+        self.locationManagerDidChangeAuthorization(self.locationManager)
         locationManager.startUpdatingLocation()
+        
+        // iOSに「常に許可」ダイアログを促すため、ダミーのジオフェンスを追加
+        if CLLocationManager.authorizationStatus() == .authorizedAlways {
+            // Attempt to trigger background location update mechanism
+            if let currentLocation = locationManager.location {
+                let dummyRegion = CLCircularRegion(center: currentLocation.coordinate, radius: 50.0, identifier: "BackgroundTrigger")
+                dummyRegion.notifyOnEntry = true
+                dummyRegion.notifyOnExit = true
+                locationManager.startMonitoring(for: dummyRegion)
+                print("📣 仮ジオフェンスを追加して常に許可のダイアログを誘導")
+            }
+        }
 
         // 通知の許可をリクエスト
         NotificationManager.shared.requestNotificationPermission()
@@ -39,6 +62,11 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     // タイマーを使って監視領域を常に出力
     func startMonitoringGeofenceStatus() {
         monitoringTimer?.invalidate() // 既存のタイマーがあれば停止
+        // 追加: 現在の許可ステータスを確認し、ユーザーに案内
+        let currentStatus = CLLocationManager.authorizationStatus()
+        if currentStatus != .authorizedAlways {
+            print("⚠️ アプリの設定で『常に許可』に変更してください → 位置情報がバックグラウンドで必要です。")
+        }
         monitoringTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
             self?.printGeodefence()
         }
@@ -75,8 +103,14 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
         // 既存の監視領域をすべて停止
         for region in locationManager.monitoredRegions {
-            locationManager.stopMonitoring(for: region)
-            print("監視を停止しました: \(region.identifier)")
+            // 追加: dummy region の削除
+            if region.identifier == "BackgroundTrigger" {
+                locationManager.stopMonitoring(for: region)
+                print("🧹 仮ジオフェンスを削除しました")
+            } else {
+                locationManager.stopMonitoring(for: region)
+                print("監視を停止しました: \(region.identifier)")
+            }
         }
 
         // 全領域クリア後、新しい監視を追加
@@ -332,4 +366,39 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             }
         }
     }
+
+    // iOS 14+ 向けの新しい認可変更コールバック
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        switch status {
+        case .authorizedAlways:
+            print("✅ locationManagerDidChangeAuthorization: 実際に「常に許可」が付与されました")
+        case .authorizedWhenInUse:
+            print("⚠️ locationManagerDidChangeAuthorization: 「使用中のみ許可」です → 「常に許可」が必要です。設定アプリで変更してください")
+            manager.requestAlwaysAuthorization()
+        case .denied, .restricted:
+            print("❌ locationManagerDidChangeAuthorization: 位置情報の使用が制限または拒否されています。設定アプリで確認してください")
+        case .notDetermined:
+            print("⏳ locationManagerDidChangeAuthorization: 位置情報の許可がまだ決定されていません")
+        @unknown default:
+            print("⚠️ locationManagerDidChangeAuthorization: 未知の認可ステータス")
+        }
+    }
 }
+
+    // CLLocationManagerDelegate: 認可ステータス変更時のハンドラ
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        switch status {
+        case .authorizedAlways:
+            print("✅ 実際に「常に許可」が付与されました")
+        case .authorizedWhenInUse:
+            print("⚠️ 「使用中のみ許可」です → 「常に許可」が必要です。設定アプリで変更してください")
+            manager.requestAlwaysAuthorization()
+        case .denied, .restricted:
+            print("❌ 位置情報の使用が制限または拒否されています。設定アプリで確認してください")
+        case .notDetermined:
+            print("⏳ 位置情報の許可がまだ決定されていません")
+        @unknown default:
+            print("⚠️ 未知の認可ステータス")
+        }
+    }

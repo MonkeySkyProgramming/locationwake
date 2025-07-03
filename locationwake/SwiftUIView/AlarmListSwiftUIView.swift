@@ -238,11 +238,6 @@ struct StoryboardViewControllerWrapper: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
         let storyboard = UIStoryboard(name: storyboardName, bundle: nil)
         let vc = storyboard.instantiateViewController(withIdentifier: viewControllerIdentifier)
-
-        if let alarmDetailVC = vc as? AlarmDetailViewController, let alarm = alarm {
-            alarmDetailVC.alarm = alarm
-        }
-
         return vc
     }
 
