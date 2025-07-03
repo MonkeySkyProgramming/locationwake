@@ -41,7 +41,12 @@ struct BaseContainerView<Content: View>: View {
                 HStack {
                     Spacer()
                     Button(action: {
-                        NotificationCenter.default.post(name: NSNotification.Name("ShowHelpOverlay"), object: nil)
+                        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                           let window = windowScene.windows.first {
+                            let onboardingView = UIHostingController(rootView: OnboardingView())
+                            onboardingView.modalPresentationStyle = .pageSheet
+                            window.rootViewController?.present(onboardingView, animated: true, completion: nil)
+                        }
                     }) {
                         Image(systemName: "questionmark.circle")
                             .resizable()

@@ -145,7 +145,7 @@ struct AlarmListSwiftUIView: View {
             .environmentObject(viewModel)
             .environmentObject(navigationModel)
             .sheet(isPresented: $showHelp) {
-                StoryboardViewControllerWrapper(storyboardName: "Main", viewControllerIdentifier: "OnboardingViewController")
+                OnboardingView()
             }
             .onAppear {
                 viewModel.loadAlarms()
