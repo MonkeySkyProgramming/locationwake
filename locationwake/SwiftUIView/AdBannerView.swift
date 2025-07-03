@@ -21,7 +21,16 @@ struct AdBannerView: UIViewControllerRepresentable {
         override func viewDidLoad() {
             super.viewDidLoad()
             setupBottomBar()
-            setupBannerAd()
+            if #available(iOS 14, *) {
+                ATTrackingManager.requestTrackingAuthorization { status in
+                    DispatchQueue.main.async {
+                        self.setupBannerAd()
+                    }
+                }
+            } else {
+                self.setupBannerAd()
+            }
+            // setupBannerAd()
         }
         
         private func setupBannerAd() {
