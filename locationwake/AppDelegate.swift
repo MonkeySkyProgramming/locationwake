@@ -1,3 +1,5 @@
+import AppTrackingTransparency
+import AdSupport
 import UIKit
 import CoreLocation
 import GoogleMobileAds   // Google Mobile Ads SDK をインポート
@@ -14,6 +16,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         locationManager?.requestAlwaysAuthorization()
         
         MobileAds.shared.start { _ in }
+        
+        if #available(iOS 14, *) {
+            ATTrackingManager.requestTrackingAuthorization { status in
+                print("ATT ステータス: \(status.rawValue)")
+            }
+        }
         
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()

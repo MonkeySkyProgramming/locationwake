@@ -616,6 +616,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "起きなはれ";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "このアプリは設定した場所に到達した時にアラームを鳴らすために位置情報を使用します。位置情報がないとアラーム機能が動作しません。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "このアプリは設定した場所に到達した時にアラームを鳴らすために位置情報を使用します。位置情報がないとアラーム機能が動作しません。";
+				INFOPLIST_KEY_NSUserTrackingUsageDescription = "より適切な広告を表示するために使用します。";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -652,6 +653,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "起きなはれ";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "このアプリは設定した場所に到達した時にアラームを鳴らすために位置情報を使用します。位置情報がないとアラーム機能が動作しません。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "このアプリは設定した場所に到達した時にアラームを鳴らすために位置情報を使用します。位置情報がないとアラーム機能が動作しません。";
+				INFOPLIST_KEY_NSUserTrackingUsageDescription = "より適切な広告を表示するために使用します。";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
