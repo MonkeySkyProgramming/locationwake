@@ -268,10 +268,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             soundPlayer.playSound(named: soundName)
         }
         if alarm.isVibrationEnabled {
-            HapticManager.triggerRepeated(.impactMedium, count: 15, interval: 1.0)
-            NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
-                // For future extension: stop continuous vibration if needed
-            }
+            HapticManager.triggerRepeated(.impactMedium, count: Int.max, interval: 1.0)
         }
 
         // アラームが作動したので isAlarmEnabled をオフにする

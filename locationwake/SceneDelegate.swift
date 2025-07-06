@@ -22,6 +22,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneDidBecomeActive(_ scene: UIScene) {
         // アプリがアクティブになった際にサウンドを停止
         soundPlayer.stopSound()
+        HapticManager.stop()
     }
 
     func sceneWillResignActive(_ scene: UIScene) {}
