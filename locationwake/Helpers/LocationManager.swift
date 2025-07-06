@@ -12,7 +12,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     static let shared = LocationManager()
     weak var delegate: LocationManagerDelegate? // デリゲートプロパティ
 
-    private var locationManager: CLLocationManager
+    public var locationManager: CLLocationManager
     private var monitoringTimer: Timer?
     private var vibrationTimer: Timer?
 
@@ -194,6 +194,11 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
                     print("アラーム \(alarm.name) は本日(\(today))は繰り返し対象外のためスキップ")
                     return
                 }
+                // hasTriggeredUntilExit チェック
+                if alarm.hasTriggeredUntilExit {
+                    print("🚫 \(alarm.name) は hasTriggeredUntilExit = true のためスキップ")
+                    return
+                }
                 triggerAlarm(for: alarm)
             }
         }
@@ -206,8 +211,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         if let index = alarms.firstIndex(where: { $0.name == region.identifier }) {
             // アラームの再トリガー状態をリセット（再入室時に再度アラームを発火させるためのフラグ）
             alarms[index].hasTriggered = false
-            
-            // 変更を保存する場合は、UserDefaults に保存
+            alarms[index].hasTriggeredUntilExit = false
             saveAlarms()
             
             // 既存のジオフェンスがある場合に再登録する
@@ -245,6 +249,12 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             }
         }
 
+        // アラームがトリガー禁止状態ならスキップ
+        if alarm.hasTriggeredUntilExit {
+            print("🚫 \(alarm.name) は hasTriggeredUntilExit = true のためトリガーしません")
+            return
+        }
+
         // 通知を削除してから新規スケジュール
         NotificationManager.shared.removeNotification(identifier: alarm.name)
         NotificationManager.shared.scheduleNotification(
@@ -271,6 +281,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
                 alarms[index].isAlarmEnabled = false
             }
             alarms[index].hasTriggered = true  // トリガー済みフラグをセット
+            alarms[index].hasTriggeredUntilExit = true // 領域から出るまでトリガー禁止
             saveAlarms() // アラーム設定を保存
             print("\(alarm.name) のアラームがトリガーされ、無効化されました。")
             delegate?.didUpdateAlarmStatus(alarms[index])
@@ -283,7 +294,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         // 追加: 現在のアラーム設定一覧を出力
         print("📋 現在のアラーム設定一覧:")
         for a in alarms {
-            print("🔔 \(a.name) | 有効: \(a.isAlarmEnabled) | トリガー済み: \(a.hasTriggered) | 繰り返し曜日: \(a.repeatWeekdays ?? []) | サウンド: \(a.sound) | バイブ: \(a.isVibrationEnabled) | 座標: \(a.location?.latitude ?? 0), \(a.location?.longitude ?? 0) | 半径: \(a.radius ?? 0)")
+            print("🔔 \(a.name) | 有効: \(a.isAlarmEnabled) | トリガー済み: \(a.hasTriggered) | hasTriggeredUntilExit: \(a.hasTriggeredUntilExit) | 繰り返し曜日: \(a.repeatWeekdays ?? []) | サウンド: \(a.sound) | バイブ: \(a.isVibrationEnabled) | 座標: \(a.location?.latitude ?? 0), \(a.location?.longitude ?? 0) | 半径: \(a.radius ?? 0)")
         }
     }
 
@@ -316,6 +327,26 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         // 位置更新時、すでに監視領域内であれば即時トリガー
         for alarm in alarms {
             print("🔎 チェック中: \(alarm.name) / hasTriggered: \(alarm.hasTriggered)")
+
+            // チェック: アラームが無効ならスキップ
+            if !alarm.isAlarmEnabled {
+                print("🚫 \(alarm.name) は isAlarmEnabled が false のためスキップ")
+                continue
+            }
+
+            // チェック: 繰り返し曜日に該当しない場合はスキップ
+            let today = Calendar.current.component(.weekday, from: Date()) - 1
+            if let repeatDays = alarm.repeatWeekdays, !repeatDays.isEmpty, !repeatDays.contains(today) {
+                print("🚫 \(alarm.name) は本日(\(today)) は繰り返し対象外のためスキップ")
+                continue
+            }
+
+            // 追加: hasTriggeredUntilExit チェック
+            if alarm.hasTriggeredUntilExit {
+                print("🚫 \(alarm.name) は hasTriggeredUntilExit = true のためスキップ")
+                continue
+            }
+
             guard let loc = alarm.location, let radius = alarm.radius else { continue }
             let userLoc = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
             let alarmLoc = CLLocation(latitude: loc.latitude, longitude: loc.longitude)

@@ -17,4 +17,5 @@ struct Alarm: Codable {
     
     // 再入室時の再トリガー用フラグ（初期値 false）
     var hasTriggered: Bool = false
+    var hasTriggeredUntilExit: Bool = false // 領域から出るまでトリガー禁止
 }

@@ -171,15 +171,31 @@ struct AlarmDetailView: View {
     
     func saveAlarmSetting(_ alarm: Alarm) {
         var savedAlarms = loadSavedAlarms()
-        if let index = savedAlarms.firstIndex(where: { $0.name == alarm.name }) {
-            savedAlarms[index] = alarm
+        // Insert geofence check and update hasTriggeredUntilExit before saving
+        let manager: CLLocationManager = LocationManager.shared.locationManager
+        if let userLocation = manager.location?.coordinate {
+            let center = CLLocation(latitude: alarm.location?.latitude ?? 0, longitude: alarm.location?.longitude ?? 0)
+            let current = CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude)
+            let distance = current.distance(from: center)
+            let isInside = distance <= (alarm.radius ?? 300.0)
+            var updatedAlarm = alarm
+            updatedAlarm.hasTriggeredUntilExit = isInside
+            if let index = savedAlarms.firstIndex(where: { $0.name == updatedAlarm.name }) {
+                savedAlarms[index] = updatedAlarm
+            } else {
+                savedAlarms.append(updatedAlarm)
+            }
         } else {
-            savedAlarms.append(alarm)
+            if let index = savedAlarms.firstIndex(where: { $0.name == alarm.name }) {
+                savedAlarms[index] = alarm
+            } else {
+                savedAlarms.append(alarm)
+            }
         }
-
         if let encoded = try? JSONEncoder().encode(savedAlarms) {
             UserDefaults.standard.set(encoded, forKey: "SavedAlarms")
         }
+        return
     }
 
     func loadSavedAlarms() -> [Alarm] {
