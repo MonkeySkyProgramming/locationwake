@@ -403,14 +403,38 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             print("✅ locationManagerDidChangeAuthorization: 実際に「常に許可」が付与されました")
         case .authorizedWhenInUse:
             print("⚠️ locationManagerDidChangeAuthorization: 「使用中のみ許可」です → 「常に許可」が必要です。設定アプリで変更してください")
+            promptUserToEnableLocationSettings()
             manager.requestAlwaysAuthorization()
         case .denied, .restricted:
             print("❌ locationManagerDidChangeAuthorization: 位置情報の使用が制限または拒否されています。設定アプリで確認してください")
+            promptUserToEnableLocationSettings()
         case .notDetermined:
             print("⏳ locationManagerDidChangeAuthorization: 位置情報の許可がまだ決定されていません")
+            promptUserToEnableLocationSettings()
         @unknown default:
             print("⚠️ locationManagerDidChangeAuthorization: 未知の認可ステータス")
         }
+    }
+    private func promptUserToEnableLocationSettings() {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootVC = windowScene.windows.first?.rootViewController else {
+            return
+        }
+
+        let alert = UIAlertController(
+            title: "位置情報の使用が制限されています",
+            message: "アラーム機能を使用するには、位置情報の「常に許可」を設定してください。",
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "キャンセル", style: .cancel, handler: nil))
+        alert.addAction(UIAlertAction(title: "設定を開く", style: .default, handler: { _ in
+            if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(settingsURL)
+            }
+        }))
+
+        rootVC.present(alert, animated: true, completion: nil)
     }
 }
 
