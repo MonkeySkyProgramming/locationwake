@@ -196,6 +196,9 @@ class AlarmListViewModel: ObservableObject {
                     if patchedAlarm.hasTriggeredUntilExit == nil {
                         patchedAlarm.hasTriggeredUntilExit = false
                     }
+                    if patchedAlarm.isVibrationEnabled == nil {
+                        patchedAlarm.isVibrationEnabled = false
+                    }
                     if patchedAlarm.id == nil {
                         patchedAlarm.id = UUID().uuidString
                     }

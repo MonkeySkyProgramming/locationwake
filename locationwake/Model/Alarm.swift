@@ -32,7 +32,7 @@ struct Alarm: Codable, Identifiable {
         sound = try container.decode(String.self, forKey: .sound)
         isAlarmEnabled = try container.decode(Bool.self, forKey: .isAlarmEnabled)
         isSoundEnabled = try container.decode(Bool.self, forKey: .isSoundEnabled)
-        isVibrationEnabled = try container.decode(Bool.self, forKey: .isVibrationEnabled)
+        isVibrationEnabled = try container.decodeIfPresent(Bool.self, forKey: .isVibrationEnabled) ?? false
         location = try container.decodeIfPresent(Location.self, forKey: .location)
         radius = try container.decodeIfPresent(Double.self, forKey: .radius)
         hasTriggered = try container.decodeIfPresent(Bool.self, forKey: .hasTriggered) ?? false
