@@ -125,6 +125,7 @@ struct AlarmDetailView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("保存") {
                         let newAlarm = Alarm(
+                            id: UUID().uuidString,
                             name: alarmName,
                             repeatWeekdays: Array(repeatWeekdays).sorted(),
                             sound: selectedSound,
@@ -179,17 +180,29 @@ struct AlarmDetailView: View {
             let distance = current.distance(from: center)
             let isInside = distance <= (alarm.radius ?? 300.0)
             var updatedAlarm = alarm
+            if updatedAlarm.id.isEmpty {
+                updatedAlarm.id = UUID().uuidString
+            }
             updatedAlarm.hasTriggeredUntilExit = isInside
-            if let index = savedAlarms.firstIndex(where: { $0.name == updatedAlarm.name }) {
+            if let index = savedAlarms.firstIndex(where: { $0.id == updatedAlarm.id }) {
                 savedAlarms[index] = updatedAlarm
             } else {
-                savedAlarms.append(updatedAlarm)
+                var newAlarm = updatedAlarm
+                if newAlarm.id.isEmpty {
+                    newAlarm.id = UUID().uuidString
+                }
+                savedAlarms.append(newAlarm)
             }
         } else {
-            if let index = savedAlarms.firstIndex(where: { $0.name == alarm.name }) {
+            // Use id-based matching instead of name-based matching
+            if let index = savedAlarms.firstIndex(where: { $0.id == alarm.id }) {
                 savedAlarms[index] = alarm
             } else {
-                savedAlarms.append(alarm)
+                var newAlarm = alarm
+                if newAlarm.id.isEmpty {
+                    newAlarm.id = UUID().uuidString
+                }
+                savedAlarms.append(newAlarm)
             }
         }
         if let encoded = try? JSONEncoder().encode(savedAlarms) {

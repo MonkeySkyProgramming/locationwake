@@ -32,9 +32,7 @@ enum NavigationRoute: Hashable {
         case .locationSelection:
             hasher.combine("locationSelection")
         case .alarmDetail(let alarm):
-            hasher.combine(alarm.name)
-            hasher.combine(alarm.location?.latitude ?? 0)
-            hasher.combine(alarm.location?.longitude ?? 0)
+            hasher.combine(alarm.id)
         case .settings:
             hasher.combine("settings")
         }
@@ -45,9 +43,7 @@ enum NavigationRoute: Hashable {
         case (.locationSelection, .locationSelection):
             return true
         case (.alarmDetail(let a1), .alarmDetail(let a2)):
-            return a1.name == a2.name &&
-                   a1.location?.latitude == a2.location?.latitude &&
-                   a1.location?.longitude == a2.location?.longitude
+            return a1.id == a2.id
         case (.settings, .settings):
             return true
         default:
@@ -75,12 +71,11 @@ struct AlarmListSwiftUIView: View {
         BaseContainerView {
             NavigationStack(path: $navigationModel.path) {
                 List {
-                    ForEach(viewModel.alarms.indices, id: \.self) { index in
+                    ForEach(viewModel.alarms, id: \.id) { alarm in
                         HStack {
                             VStack(alignment: .leading) {
-                                Text(viewModel.alarms[index].name)
+                                Text(alarm.name)
                                     .font(.headline)
-                                let alarm = viewModel.alarms[index]
                                 let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
                                 let repeatText = (alarm.repeatWeekdays?.isEmpty ?? true) ? "" : "（" + alarm.repeatWeekdays!.sorted().map { weekdays[$0] }.joined(separator: "・") + "）"
                                 let vibrationText = alarm.isVibrationEnabled ? "・バイブレーション" : ""
@@ -92,15 +87,19 @@ struct AlarmListSwiftUIView: View {
 
                             Spacer()
 
-                            Toggle("", isOn: $viewModel.alarms[index].isAlarmEnabled)
-                                .labelsHidden()
-                                .onChange(of: viewModel.alarms[index].isAlarmEnabled) { _ in
-                                    viewModel.saveAlarms()
+                            Toggle("", isOn: Binding(
+                                get: { alarm.isAlarmEnabled },
+                                set: { newValue in
+                                    if let index = viewModel.alarms.firstIndex(where: { $0.id == alarm.id }) {
+                                        viewModel.alarms[index].isAlarmEnabled = newValue
+                                        viewModel.saveAlarms()
+                                    }
                                 }
+                            ))
+                            .labelsHidden()
                         }
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            let alarm = viewModel.alarms[index]
                             if alarm.location != nil {
                                 navigationModel.path.append(.alarmDetail(alarm: alarm))
                             }
@@ -185,13 +184,30 @@ class AlarmListViewModel: ObservableObject {
         if let savedAlarms = UserDefaults.standard.object(forKey: "SavedAlarms") as? Data {
             let decoder = JSONDecoder()
             if let loadedAlarms = try? decoder.decode([Alarm].self, from: savedAlarms) {
-                self.alarms = loadedAlarms
-                print("✅ 読み込み成功: \(loadedAlarms.map { $0.name })")
+                // Backward compatibility: patch missing properties
+                self.alarms = loadedAlarms.map { alarm in
+                    var patchedAlarm = alarm
+                    if patchedAlarm.repeatWeekdays == nil {
+                        patchedAlarm.repeatWeekdays = []
+                    }
+                    if patchedAlarm.hasTriggered == nil {
+                        patchedAlarm.hasTriggered = false
+                    }
+                    if patchedAlarm.hasTriggeredUntilExit == nil {
+                        patchedAlarm.hasTriggeredUntilExit = false
+                    }
+                    if patchedAlarm.id == nil {
+                        patchedAlarm.id = UUID().uuidString
+                    }
+                    return patchedAlarm
+                }
+                print("✅ 読み込み成功: \(alarms.map { $0.name })")
             }
         }
         // データが読み込めなかった・空だった場合はサンプルアラームを追加
         if self.alarms.isEmpty {
             let sampleAlarm = Alarm(
+                id: UUID().uuidString,
                 name: "サンプルアラーム",
                 repeatWeekdays: [],
                 sound: "modan",
@@ -199,7 +215,9 @@ class AlarmListViewModel: ObservableObject {
                 isSoundEnabled: true,
                 isVibrationEnabled: false,
                 location: Location(latitude: 34.702485, longitude: 135.495951),
-                radius: 300.0
+                radius: 300.0,
+                hasTriggered: false,
+                hasTriggeredUntilExit: false
             )
             self.alarms = [sampleAlarm]
             print("📦 アラームが空のためサンプルアラームを追加")

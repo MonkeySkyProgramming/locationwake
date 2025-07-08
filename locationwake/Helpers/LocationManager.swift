@@ -255,6 +255,19 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             return
         }
 
+        // 曜日チェックとアラーム有効状態を確認
+        let today = Calendar.current.component(.weekday, from: Date()) - 1 // Sunday = 0
+        if !alarm.isAlarmEnabled {
+            print("🚫 \(alarm.name) は isAlarmEnabled が false のためトリガーしません")
+            return
+        }
+        if let repeatDays = alarm.repeatWeekdays, !repeatDays.isEmpty {
+            if !repeatDays.contains(today) {
+                print("🚫 \(alarm.name) は本日(\(today))は繰り返し対象外のためトリガーしません")
+                return
+            }
+        }
+
         // 通知を削除してから新規スケジュール
         NotificationManager.shared.removeNotification(identifier: alarm.name)
         NotificationManager.shared.scheduleNotification(
