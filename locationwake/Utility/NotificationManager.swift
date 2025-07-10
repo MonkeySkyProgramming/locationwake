@@ -1,3 +1,4 @@
+import UIKit
 import UserNotifications
 
 class NotificationManager {
@@ -6,12 +7,53 @@ class NotificationManager {
     // 通知の許可をリクエストするメソッド
     func requestNotificationPermission() {
         let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if granted {
-                print("通知の許可が得られました")
-            } else {
-                print("通知の許可が拒否されました: \(String(describing: error?.localizedDescription))")
+        
+        center.getNotificationSettings { settings in
+            switch settings.authorizationStatus {
+            case .notDetermined:
+                // ユーザーに許可をリクエスト
+                center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+                    DispatchQueue.main.async {
+                        if granted {
+                            print("通知の許可が得られました")
+                        } else {
+                            print("通知の許可が拒否されました: \(String(describing: error?.localizedDescription))")
+                            self.showPermissionAlert()
+                        }
+                    }
+                }
+            case .denied:
+                // 拒否されている場合はアラートを表示
+                DispatchQueue.main.async {
+                    self.showPermissionAlert()
+                }
+            case .authorized, .provisional, .ephemeral:
+                DispatchQueue.main.async {
+                    print("通知の許可が得られました")
+                }
+            @unknown default:
+                break
             }
+        }
+    }
+
+    // アラートを表示するヘルパーメソッド
+    private func showPermissionAlert() {
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = scene.windows.first?.rootViewController {
+            let alert = UIAlertController(
+                title: "通知の許可が必要です",
+                message: "通知を受け取るには、設定アプリで通知を許可してください。",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "設定を開く", style: .default, handler: { _ in
+                if let url = URL(string: UIApplication.openSettingsURLString),
+                   UIApplication.shared.canOpenURL(url) {
+                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                }
+            }))
+            alert.addAction(UIAlertAction(title: "キャンセル", style: .cancel, handler: nil))
+            rootVC.present(alert, animated: true, completion: nil)
         }
     }
 
