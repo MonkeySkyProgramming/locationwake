@@ -15,6 +15,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     public var locationManager: CLLocationManager
     private var monitoringTimer: Timer?
     private var vibrationTimer: Timer?
+    private var authorizationCheckTimer: Timer?
 
     var alarms: [Alarm] = [] // アラームリスト
 
@@ -28,12 +29,12 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         // 必要な設定: バックグラウンド位置情報更新を有効化し、自動停止を無効化
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.pausesLocationUpdatesAutomatically = false
-        let currentStatus = CLLocationManager.authorizationStatus()
+        let currentStatus = locationManager.authorizationStatus
         if currentStatus != .authorizedAlways {
             print("📣 位置情報の常に許可が必要です。リクエスト中...")
             locationManager.requestAlwaysAuthorization()
         } else {
-            print("✅ CLLocationManager.authorizationStatus により常に許可が検出されました")
+            print("✅ locationManager.authorizationStatus により常に許可が検出されました")
         }
         locationManager.delegate = self
         // 認可ステータスの変化確認のために毎回チェック
@@ -41,7 +42,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         locationManager.startUpdatingLocation()
         
         // iOSに「常に許可」ダイアログを促すため、ダミーのジオフェンスを追加
-        if CLLocationManager.authorizationStatus() == .authorizedAlways {
+        if locationManager.authorizationStatus == .authorizedAlways {
             // Attempt to trigger background location update mechanism
             if let currentLocation = locationManager.location {
                 let dummyRegion = CLCircularRegion(center: currentLocation.coordinate, radius: 50.0, identifier: "BackgroundTrigger")
@@ -57,6 +58,13 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
         // 監視領域を定期的に出力するためのタイマーを開始
         startMonitoringGeofenceStatus()
+        // 追加: 定期的な認可ステータスチェックを開始
+        startAuthorizationStatusCheck()
+
+        // 初回起動後の1分後に位置情報の常に許可を促すアラートを表示
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60.0) { [weak self] in
+            self?.promptUserToEnableLocationSettings()
+        }
     }
 
     // タイマーを使って監視領域を常に出力
@@ -416,7 +424,12 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             print("✅ locationManagerDidChangeAuthorization: 実際に「常に許可」が付与されました")
         case .authorizedWhenInUse:
             print("⚠️ locationManagerDidChangeAuthorization: 「使用中のみ許可」です → 「常に許可」が必要です。設定アプリで変更してください")
-            promptUserToEnableLocationSettings()
+            if !UserDefaults.standard.bool(forKey: "DidPromptForAlwaysPermission") {
+                UserDefaults.standard.set(true, forKey: "DidPromptForAlwaysPermission")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    self.promptUserToEnableLocationSettings()
+                }
+            }
             manager.requestAlwaysAuthorization()
         case .denied, .restricted:
             print("❌ locationManagerDidChangeAuthorization: 位置情報の使用が制限または拒否されています。設定アプリで確認してください")
@@ -435,35 +448,46 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         }
 
         let alert = UIAlertController(
-            title: "位置情報の使用が制限されています",
-            message: "アラーム機能を使用するには、位置情報の「常に許可」を設定してください。",
+            title: "位置情報の許可が必要です",
+            message: "このアプリでは常に位置情報へのアクセスが必要です。設定画面から「常に許可」に変更してください。",
             preferredStyle: .alert
         )
 
-        alert.addAction(UIAlertAction(title: "キャンセル", style: .cancel, handler: nil))
-        alert.addAction(UIAlertAction(title: "設定を開く", style: .default, handler: { _ in
-            if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
-                UIApplication.shared.open(settingsURL)
+        alert.addAction(UIAlertAction(title: "設定へ", style: .default, handler: { _ in
+            if let appSettings = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(appSettings)
             }
         }))
+        alert.addAction(UIAlertAction(title: "キャンセル", style: .cancel, handler: nil))
 
         rootVC.present(alert, animated: true, completion: nil)
     }
-}
 
-    // CLLocationManagerDelegate: 認可ステータス変更時のハンドラ
-    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        switch status {
-        case .authorizedAlways:
-            print("✅ 実際に「常に許可」が付与されました")
-        case .authorizedWhenInUse:
-            print("⚠️ 「使用中のみ許可」です → 「常に許可」が必要です。設定アプリで変更してください")
-            manager.requestAlwaysAuthorization()
-        case .denied, .restricted:
-            print("❌ 位置情報の使用が制限または拒否されています。設定アプリで確認してください")
-        case .notDetermined:
-            print("⏳ 位置情報の許可がまだ決定されていません")
-        @unknown default:
-            print("⚠️ 未知の認可ステータス")
+    // 追加: 定期的に認可ステータスをチェックするメソッド
+    func startAuthorizationStatusCheck() {
+        authorizationCheckTimer?.invalidate() // 既存のタイマーを停止
+        authorizationCheckTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+            self?.checkAuthorizationStatus()
         }
     }
+
+    private func checkAuthorizationStatus() {
+        let status = locationManager.authorizationStatus
+        switch status {
+        case .authorizedAlways:
+            print("🟢 位置情報は常に許可されています")
+        case .authorizedWhenInUse:
+            print("🟡 使用中のみ許可 → 常に許可が必要です")
+            promptUserToEnableLocationSettings()
+        case .denied, .restricted:
+            print("🔴 拒否・制限されています")
+            promptUserToEnableLocationSettings()
+        case .notDetermined:
+            print("⏳ まだ未決定です")
+            promptUserToEnableLocationSettings()
+        @unknown default:
+            print("⚠️ 未知の状態")
+        }
+    }
+}
+
