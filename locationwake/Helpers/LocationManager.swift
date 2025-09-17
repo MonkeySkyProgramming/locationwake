@@ -22,6 +22,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     var skipNames: Set<String> = []
 
     private var soundPlayer = SoundPlayer.shared
+    private var isShowingAlwaysAlert = false
 
     override init() {
         locationManager = CLLocationManager()
@@ -61,9 +62,9 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         // 追加: 定期的な認可ステータスチェックを開始
         startAuthorizationStatusCheck()
 
-        // 初回起動後の1分後に位置情報の常に許可を促すアラートを表示
+        // 初回起動後の1分後に状態をチェック（必要な場合のみポップを表示）
         DispatchQueue.main.asyncAfter(deadline: .now() + 60.0) { [weak self] in
-            self?.promptUserToEnableLocationSettings()
+            self?.checkAuthorizationStatus()
         }
     }
 
@@ -441,24 +442,54 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             print("⚠️ locationManagerDidChangeAuthorization: 未知の認可ステータス")
         }
     }
+    private func shouldPromptForAlwaysAuthorization() -> Bool {
+        // 1) すでに「常に許可」なら出さない
+        let status = locationManager.authorizationStatus
+        if status == .authorizedAlways { return false }
+
+        // 2) アプリがフォアグラウンドでない時は出さない
+        if UIApplication.shared.applicationState != .active { return false }
+
+        // 3) すでにポップを表示中なら出さない
+        if isShowingAlwaysAlert { return false }
+
+        // 抑制間隔なし（常に評価する）
+        return true
+    }
+
     private func promptUserToEnableLocationSettings() {
+        // ガード条件: 必要な時だけ表示
+        guard shouldPromptForAlwaysAuthorization() else { return }
+
+        // すでに何かを表示中なら重複表示しない
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootVC = windowScene.windows.first?.rootViewController else {
+              let rootVC = windowScene.windows.first?.rootViewController,
+              rootVC.presentedViewController == nil else {
             return
         }
 
+        isShowingAlwaysAlert = true
+
         let alert = UIAlertController(
             title: "位置情報の許可が必要です",
-            message: "このアプリでは常に位置情報へのアクセスが必要です。設定画面から「常に許可」に変更してください。",
+            message: "このアプリでは常に位置情報へのアクセスが必要です。設定画面から『常に許可』に変更してください。",
             preferredStyle: .alert
         )
+
+        let recordDismiss: () -> Void = {
+            self.isShowingAlwaysAlert = false
+            UserDefaults.standard.set(Date(), forKey: "LastAlwaysPromptAt")
+        }
 
         alert.addAction(UIAlertAction(title: "設定へ", style: .default, handler: { _ in
             if let appSettings = URL(string: UIApplication.openSettingsURLString) {
                 UIApplication.shared.open(appSettings)
             }
+            recordDismiss()
         }))
-        alert.addAction(UIAlertAction(title: "キャンセル", style: .cancel, handler: nil))
+        alert.addAction(UIAlertAction(title: "キャンセル", style: .cancel, handler: { _ in
+            recordDismiss()
+        }))
 
         rootVC.present(alert, animated: true, completion: nil)
     }
@@ -466,12 +497,15 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     // 追加: 定期的に認可ステータスをチェックするメソッド
     func startAuthorizationStatusCheck() {
         authorizationCheckTimer?.invalidate() // 既存のタイマーを停止
-        authorizationCheckTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+        authorizationCheckTimer = Timer.scheduledTimer(withTimeInterval: 60.0 * 60.0, repeats: true) { [weak self] _ in
+            let ts = String(format: "%.3f", Date().timeIntervalSince1970)
+            print("⏱️ [AuthCheckTimer] fired at \(ts)")
             self?.checkAuthorizationStatus()
         }
     }
 
     private func checkAuthorizationStatus() {
+        print("🔎 [AuthCheck] checking authorization... \(Date())")
         let status = locationManager.authorizationStatus
         switch status {
         case .authorizedAlways:

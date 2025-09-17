@@ -35,28 +35,23 @@ struct BaseContainerView<Content: View>: View {
             .frame(maxWidth: .infinity)
         }
         .ignoresSafeArea(edges: .bottom)
-        .overlay(
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                           let window = windowScene.windows.first {
-                            let onboardingView = UIHostingController(rootView: OnboardingView())
-                            onboardingView.modalPresentationStyle = .pageSheet
-                            window.rootViewController?.present(onboardingView, animated: true, completion: nil)
-                        }
-                    }) {
-                        Image(systemName: "questionmark.circle")
-                            .resizable()
-                            .frame(width: 32, height: 32)
-                            .foregroundColor(.primary)
-                            .padding(.bottom, 90)
-                            .padding(.trailing)
-                    }
+        .overlay(alignment: .bottomTrailing) {
+            Button(action: {
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first {
+                    let onboardingView = UIHostingController(rootView: OnboardingView())
+                    onboardingView.modalPresentationStyle = .pageSheet
+                    window.rootViewController?.present(onboardingView, animated: true, completion: nil)
                 }
+            }) {
+                Image(systemName: "questionmark.circle")
+                    .resizable()
+                    .frame(width: 32, height: 32)
+                    .foregroundColor(.primary)
             }
-        )
+            .allowsHitTesting(true)
+            .padding(.bottom, 90)
+            .padding(.trailing)
+        }
     }
 }
