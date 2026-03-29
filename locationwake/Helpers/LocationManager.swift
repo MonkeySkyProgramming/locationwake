@@ -2,6 +2,7 @@ import Foundation
 import CoreLocation
 import UserNotifications
 import AVFoundation
+import UIKit
 
 protocol LocationManagerDelegate: AnyObject {
     func didUpdateAlarmStatus(_ alarm: Alarm)
@@ -11,44 +12,114 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     static let shared = LocationManager()
     weak var delegate: LocationManagerDelegate? // デリゲートプロパティ
 
-    private var locationManager: CLLocationManager
+    public var locationManager: CLLocationManager
     private var monitoringTimer: Timer?
+    private var vibrationTimer: Timer?
+    private var authorizationCheckTimer: Timer?
 
     var alarms: [Alarm] = [] // アラームリスト
 
+    var skipNames: Set<String> = []
+
     private var soundPlayer = SoundPlayer.shared
+    private var isShowingAlwaysAlert = false
 
     override init() {
         locationManager = CLLocationManager()
         super.init()
+        // 必要な設定: バックグラウンド位置情報更新を有効化し、自動停止を無効化
+        locationManager.allowsBackgroundLocationUpdates = true
+        locationManager.pausesLocationUpdatesAutomatically = false
+        let currentStatus = locationManager.authorizationStatus
+        if currentStatus != .authorizedAlways {
+            print("📣 位置情報の常に許可が必要です。リクエスト中...")
+            locationManager.requestAlwaysAuthorization()
+        } else {
+            print("✅ locationManager.authorizationStatus により常に許可が検出されました")
+        }
         locationManager.delegate = self
-        locationManager.requestAlwaysAuthorization()
+        // 認可ステータスの変化確認のために毎回チェック
+        self.locationManagerDidChangeAuthorization(self.locationManager)
+        locationManager.startUpdatingLocation()
+        
+        // iOSに「常に許可」ダイアログを促すため、ダミーのジオフェンスを追加
+        if locationManager.authorizationStatus == .authorizedAlways {
+            // Attempt to trigger background location update mechanism
+            if let currentLocation = locationManager.location {
+                let dummyRegion = CLCircularRegion(center: currentLocation.coordinate, radius: 50.0, identifier: "BackgroundTrigger")
+                dummyRegion.notifyOnEntry = true
+                dummyRegion.notifyOnExit = true
+                locationManager.startMonitoring(for: dummyRegion)
+                print("📣 仮ジオフェンスを追加して常に許可のダイアログを誘導")
+            }
+        }
 
         // 通知の許可をリクエスト
         NotificationManager.shared.requestNotificationPermission()
 
         // 監視領域を定期的に出力するためのタイマーを開始
         startMonitoringGeofenceStatus()
+        // 追加: 定期的な認可ステータスチェックを開始
+        startAuthorizationStatusCheck()
+
+        // 初回起動後の1分後に状態をチェック（必要な場合のみポップを表示）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60.0) { [weak self] in
+            self?.checkAuthorizationStatus()
+        }
     }
 
     // タイマーを使って監視領域を常に出力
     func startMonitoringGeofenceStatus() {
         monitoringTimer?.invalidate() // 既存のタイマーがあれば停止
+        // 追加: 現在の許可ステータスを確認し、ユーザーに案内
+        let currentStatus = CLLocationManager.authorizationStatus()
+        if currentStatus != .authorizedAlways {
+            print("⚠️ アプリの設定で『常に許可』に変更してください → 位置情報がバックグラウンドで必要です。")
+        }
         monitoringTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
             self?.printGeodefence()
         }
     }
 
     // Geofenceの監視を開始する
-    func startMonitoring(alarms: [Alarm]) {
+    func startMonitoring(alarms: [Alarm], skipImmediateCheck: Bool = false) {
         self.alarms = alarms // アラームを保持
+        if let currentLocation = locationManager.location?.coordinate, !skipImmediateCheck {
+            for alarm in alarms {
+                if UserDefaults.standard.bool(forKey: "SkipTrigger_\(alarm.name)") {
+                    print("🚫 \(alarm.name) は保存直後のため startMonitoring でトリガーをスキップ")
+                    UserDefaults.standard.set(false, forKey: "SkipTrigger_\(alarm.name)") // Reset flag
+                    continue
+                }
+                guard let location = alarm.location, let radius = alarm.radius else { continue }
+                if alarm.hasTriggered {
+                    print("⏹️ トリガー済みアラームをスキップ: \(alarm.name)")
+                    continue
+                }
+                let region = CLCircularRegion(
+                    center: CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude),
+                    radius: min(radius, 1000.0),
+                    identifier: alarm.name
+                )
+                if region.contains(currentLocation) {
+                    print("🚨 現在地は \(alarm.name) のジオフェンス内 → 即時トリガー")
+                    triggerAlarm(for: alarm)
+                }
+            }
+        }
         print("受け取ったアラームリスト: \(alarms.map { $0.name })")
         print("現在の監視領域(開始前): \(locationManager.monitoredRegions.map { $0.identifier })")
 
         // 既存の監視領域をすべて停止
         for region in locationManager.monitoredRegions {
-            locationManager.stopMonitoring(for: region)
-            print("監視を停止しました: \(region.identifier)")
+            // 追加: dummy region の削除
+            if region.identifier == "BackgroundTrigger" {
+                locationManager.stopMonitoring(for: region)
+                print("🧹 仮ジオフェンスを削除しました")
+            } else {
+                locationManager.stopMonitoring(for: region)
+                print("監視を停止しました: \(region.identifier)")
+            }
         }
 
         // 全領域クリア後、新しい監視を追加
@@ -84,9 +155,12 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     // 新しいジオフェンスを追加
     func addGeofences(for alarms: [Alarm]) {
         for alarm in alarms {
+
+            print("⚙️ addGeofence 対象: \(alarm.name), 緯度: \(alarm.location?.latitude ?? 0), 半径: \(alarm.radius ?? 0), 有効: \(alarm.isAlarmEnabled)")
             // すべてのアラームに対してジオフェンスを設定するため、isAlarmEnabled のチェックは削除
             guard let location = alarm.location, let radius = alarm.radius else {
                 print("アラーム \(alarm.name) の位置情報または半径が無効です")
+                print("⛔ スキップされたアラーム: \(alarm.name)")
                 continue
             }
             // すでに監視中の場合はスキップ
@@ -129,6 +203,11 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
                     print("アラーム \(alarm.name) は本日(\(today))は繰り返し対象外のためスキップ")
                     return
                 }
+                // hasTriggeredUntilExit チェック
+                if alarm.hasTriggeredUntilExit {
+                    print("🚫 \(alarm.name) は hasTriggeredUntilExit = true のためスキップ")
+                    return
+                }
                 triggerAlarm(for: alarm)
             }
         }
@@ -141,8 +220,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         if let index = alarms.firstIndex(where: { $0.name == region.identifier }) {
             // アラームの再トリガー状態をリセット（再入室時に再度アラームを発火させるためのフラグ）
             alarms[index].hasTriggered = false
-            
-            // 変更を保存する場合は、UserDefaults に保存
+            alarms[index].hasTriggeredUntilExit = false
             saveAlarms()
             
             // 既存のジオフェンスがある場合に再登録する
@@ -158,6 +236,47 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
     // アラームをトリガーする処理（サウンド名を使用）
     private func triggerAlarm(for alarm: Alarm) {
+        if skipNames.contains(alarm.name) {
+            print("🚫 \(alarm.name) は保存直後（メモリ）でトリガーをスキップ")
+            skipNames.remove(alarm.name)
+            return
+        }
+        let skipKey = "SkipTrigger_\(alarm.name)"
+        if UserDefaults.standard.bool(forKey: skipKey) {
+            print("🚫 \(alarm.name) は保存直後のためトリガーをスキップ（フラグによる）")
+            UserDefaults.standard.set(false, forKey: skipKey) // Reset after skipping
+            return
+        }
+        let skipTimestampKey = "SkipTriggerAt_\(alarm.name)"
+        if let savedDate = UserDefaults.standard.object(forKey: skipTimestampKey) as? Date {
+            let interval = Date().timeIntervalSince(savedDate)
+            if interval < 10 {
+                print("⏳ 保存から \(interval) 秒未満のため \(alarm.name) トリガーをスキップ")
+                return
+            } else {
+                UserDefaults.standard.removeObject(forKey: skipTimestampKey)
+            }
+        }
+
+        // アラームがトリガー禁止状態ならスキップ
+        if alarm.hasTriggeredUntilExit {
+            print("🚫 \(alarm.name) は hasTriggeredUntilExit = true のためトリガーしません")
+            return
+        }
+
+        // 曜日チェックとアラーム有効状態を確認
+        let today = Calendar.current.component(.weekday, from: Date()) - 1 // Sunday = 0
+        if !alarm.isAlarmEnabled {
+            print("🚫 \(alarm.name) は isAlarmEnabled が false のためトリガーしません")
+            return
+        }
+        if let repeatDays = alarm.repeatWeekdays, !repeatDays.isEmpty {
+            if !repeatDays.contains(today) {
+                print("🚫 \(alarm.name) は本日(\(today))は繰り返し対象外のためトリガーしません")
+                return
+            }
+        }
+
         // 通知を削除してから新規スケジュール
         NotificationManager.shared.removeNotification(identifier: alarm.name)
         NotificationManager.shared.scheduleNotification(
@@ -170,20 +289,32 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         if alarm.isSoundEnabled {
             soundPlayer.playSound(named: soundName)
         }
+        if alarm.isVibrationEnabled {
+            HapticManager.triggerRepeated(.impactMedium, count: Int.max, interval: 1.0)
+        }
 
         // アラームが作動したので isAlarmEnabled をオフにする
         if let index = alarms.firstIndex(where: { $0.name == alarm.name }) {
+            // 繰り返し曜日が未設定または空の場合のみ isAlarmEnabled をオフにする
             if alarms[index].repeatWeekdays?.isEmpty ?? true {
                 alarms[index].isAlarmEnabled = false
             }
             alarms[index].hasTriggered = true  // トリガー済みフラグをセット
+            alarms[index].hasTriggeredUntilExit = true // 領域から出るまでトリガー禁止
             saveAlarms() // アラーム設定を保存
             print("\(alarm.name) のアラームがトリガーされ、無効化されました。")
             delegate?.didUpdateAlarmStatus(alarms[index])
+            NotificationCenter.default.post(name: Notification.Name("AlarmUpdated"), object: nil)
         }
 
         // トリガー後に監視領域を再設定
-        startMonitoring(alarms: alarms)
+        startMonitoring(alarms: alarms, skipImmediateCheck: false)
+
+        // 追加: 現在のアラーム設定一覧を出力
+        print("📋 現在のアラーム設定一覧:")
+        for a in alarms {
+            print("🔔 \(a.name) | 有効: \(a.isAlarmEnabled) | トリガー済み: \(a.hasTriggered) | hasTriggeredUntilExit: \(a.hasTriggeredUntilExit) | 繰り返し曜日: \(a.repeatWeekdays ?? []) | サウンド: \(a.sound) | バイブ: \(a.isVibrationEnabled) | 座標: \(a.location?.latitude ?? 0), \(a.location?.longitude ?? 0) | 半径: \(a.radius ?? 0)")
+        }
     }
 
     // アラームを保存するメソッド
@@ -208,4 +339,189 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         }
         print("監視解除後の領域: \(locationManager.monitoredRegions.map { $0.identifier })")
     }
+    // ユーザーの現在位置を継続的に出力
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
+        print("📍 現在位置: 緯度 \(location.coordinate.latitude), 経度 \(location.coordinate.longitude)")
+        // 位置更新時、すでに監視領域内であれば即時トリガー
+        for alarm in alarms {
+            print("🔎 チェック中: \(alarm.name) / hasTriggered: \(alarm.hasTriggered)")
+
+            // チェック: アラームが無効ならスキップ
+            if !alarm.isAlarmEnabled {
+                print("🚫 \(alarm.name) は isAlarmEnabled が false のためスキップ")
+                continue
+            }
+
+            // チェック: 繰り返し曜日に該当しない場合はスキップ
+            let today = Calendar.current.component(.weekday, from: Date()) - 1
+            if let repeatDays = alarm.repeatWeekdays, !repeatDays.isEmpty, !repeatDays.contains(today) {
+                print("🚫 \(alarm.name) は本日(\(today)) は繰り返し対象外のためスキップ")
+                continue
+            }
+
+            // 追加: hasTriggeredUntilExit チェック
+            if alarm.hasTriggeredUntilExit {
+                print("🚫 \(alarm.name) は hasTriggeredUntilExit = true のためスキップ")
+                continue
+            }
+
+            guard let loc = alarm.location, let radius = alarm.radius else { continue }
+            let userLoc = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+            let alarmLoc = CLLocation(latitude: loc.latitude, longitude: loc.longitude)
+            let distance = userLoc.distance(from: alarmLoc)
+            print("📏 \(alarm.name) までの距離: \(Int(distance)) m")
+            let region = CLCircularRegion(
+                center: CLLocationCoordinate2D(latitude: loc.latitude, longitude: loc.longitude),
+                radius: min(radius, 1000.0),
+                identifier: alarm.name
+            )
+            let skipTimestampKey = "SkipTriggerAt_\(alarm.name)"
+            if let savedDate = UserDefaults.standard.object(forKey: skipTimestampKey) as? Date {
+                let interval = Date().timeIntervalSince(savedDate)
+                if interval < 10 {
+                    print("⏳ didUpdateLocation: 保存直後 \(interval) 秒 → トリガー抑制")
+                    continue
+                }
+            }
+
+            if region.contains(location.coordinate), !alarm.hasTriggered {
+                // 保存直後スキップ条件（メモリ）
+                if skipNames.contains(alarm.name) {
+                    print("🚫 didUpdateLocation: \(alarm.name) はメモリ上でスキップ")
+                    skipNames.remove(alarm.name)
+                    continue
+                }
+
+                // 保存直後スキップ条件（UserDefaultsフラグ）
+                let skipKey = "SkipTrigger_\(alarm.name)"
+                if UserDefaults.standard.bool(forKey: skipKey) {
+                    print("🚫 didUpdateLocation: \(alarm.name) は UserDefaults フラグでスキップ")
+                    UserDefaults.standard.set(false, forKey: skipKey)
+                    continue
+                }
+
+                // 保存直後スキップ条件（UserDefaultsタイムスタンプ）
+                let skipTimestampKey = "SkipTriggerAt_\(alarm.name)"
+                if let savedDate = UserDefaults.standard.object(forKey: skipTimestampKey) as? Date {
+                    let interval = Date().timeIntervalSince(savedDate)
+                    if interval < 10 {
+                        print("⏳ didUpdateLocation: 保存直後 \(interval) 秒 → トリガー抑制")
+                        continue
+                    }
+                }
+
+                print("🚨 didUpdateLocation中に \(alarm.name) に既に入っていた → 即時トリガー")
+                triggerAlarm(for: alarm)
+            }
+        }
+    }
+
+    // iOS 14+ 向けの新しい認可変更コールバック
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        switch status {
+        case .authorizedAlways:
+            print("✅ locationManagerDidChangeAuthorization: 実際に「常に許可」が付与されました")
+        case .authorizedWhenInUse:
+            print("⚠️ locationManagerDidChangeAuthorization: 「使用中のみ許可」です → 「常に許可」が必要です。設定アプリで変更してください")
+            if !UserDefaults.standard.bool(forKey: "DidPromptForAlwaysPermission") {
+                UserDefaults.standard.set(true, forKey: "DidPromptForAlwaysPermission")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    self.promptUserToEnableLocationSettings()
+                }
+            }
+            manager.requestAlwaysAuthorization()
+        case .denied, .restricted:
+            print("❌ locationManagerDidChangeAuthorization: 位置情報の使用が制限または拒否されています。設定アプリで確認してください")
+            promptUserToEnableLocationSettings()
+        case .notDetermined:
+            print("⏳ locationManagerDidChangeAuthorization: 位置情報の許可がまだ決定されていません")
+            promptUserToEnableLocationSettings()
+        @unknown default:
+            print("⚠️ locationManagerDidChangeAuthorization: 未知の認可ステータス")
+        }
+    }
+    private func shouldPromptForAlwaysAuthorization() -> Bool {
+        // 1) すでに「常に許可」なら出さない
+        let status = locationManager.authorizationStatus
+        if status == .authorizedAlways { return false }
+
+        // 2) アプリがフォアグラウンドでない時は出さない
+        if UIApplication.shared.applicationState != .active { return false }
+
+        // 3) すでにポップを表示中なら出さない
+        if isShowingAlwaysAlert { return false }
+
+        // 抑制間隔なし（常に評価する）
+        return true
+    }
+
+    private func promptUserToEnableLocationSettings() {
+        // ガード条件: 必要な時だけ表示
+        guard shouldPromptForAlwaysAuthorization() else { return }
+
+        // すでに何かを表示中なら重複表示しない
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootVC = windowScene.windows.first?.rootViewController,
+              rootVC.presentedViewController == nil else {
+            return
+        }
+
+        isShowingAlwaysAlert = true
+
+        let alert = UIAlertController(
+            title: "位置情報の許可が必要です",
+            message: "このアプリでは常に位置情報へのアクセスが必要です。設定画面から『常に許可』に変更してください。",
+            preferredStyle: .alert
+        )
+
+        let recordDismiss: () -> Void = {
+            self.isShowingAlwaysAlert = false
+            UserDefaults.standard.set(Date(), forKey: "LastAlwaysPromptAt")
+        }
+
+        alert.addAction(UIAlertAction(title: "設定へ", style: .default, handler: { _ in
+            if let appSettings = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(appSettings)
+            }
+            recordDismiss()
+        }))
+        alert.addAction(UIAlertAction(title: "キャンセル", style: .cancel, handler: { _ in
+            recordDismiss()
+        }))
+
+        rootVC.present(alert, animated: true, completion: nil)
+    }
+
+    // 追加: 定期的に認可ステータスをチェックするメソッド
+    func startAuthorizationStatusCheck() {
+        authorizationCheckTimer?.invalidate() // 既存のタイマーを停止
+        authorizationCheckTimer = Timer.scheduledTimer(withTimeInterval: 60.0 * 60.0, repeats: true) { [weak self] _ in
+            let ts = String(format: "%.3f", Date().timeIntervalSince1970)
+            print("⏱️ [AuthCheckTimer] fired at \(ts)")
+            self?.checkAuthorizationStatus()
+        }
+    }
+
+    private func checkAuthorizationStatus() {
+        print("🔎 [AuthCheck] checking authorization... \(Date())")
+        let status = locationManager.authorizationStatus
+        switch status {
+        case .authorizedAlways:
+            print("🟢 位置情報は常に許可されています")
+        case .authorizedWhenInUse:
+            print("🟡 使用中のみ許可 → 常に許可が必要です")
+            promptUserToEnableLocationSettings()
+        case .denied, .restricted:
+            print("🔴 拒否・制限されています")
+            promptUserToEnableLocationSettings()
+        case .notDetermined:
+            print("⏳ まだ未決定です")
+            promptUserToEnableLocationSettings()
+        @unknown default:
+            print("⚠️ 未知の状態")
+        }
+    }
 }
+

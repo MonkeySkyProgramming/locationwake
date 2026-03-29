@@ -3,11 +3,12 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		130C18062DFAA17500A9F556 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 130C18052DFAA17500A9F556 /* .gitignore */; };
+		13724FC12E125C420071055E /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13724FC02E125C3E0071055E /* HapticManager.swift */; };
 		137DE3912D77743200E22525 /* OnboardingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137DE3902D77743200E22525 /* OnboardingViewController.swift */; };
 		139920582DEEB9FF009E330E /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 139920572DEEB9FF009E330E /* GoogleMobileAds */; };
 		13B7D32D2CB3D40600BDAD6C /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 13B7D32C2CB3D40600BDAD6C /* LaunchScreen.storyboard */; };
@@ -35,7 +36,6 @@
 		13E84A762C8951F700C933F6 /* modan.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A732C8951F700C933F6 /* modan.mp3 */; };
 		13E84A772C8951F700C933F6 /* siren.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A742C8951F700C933F6 /* siren.mp3 */; };
 		13E84A782C8951F700C933F6 /* kind.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A752C8951F700C933F6 /* kind.mp3 */; };
-		19C520D6C59602621C2C5816 /* Pods_locationwake.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F35D748A9EC20B23C6171DBB /* Pods_locationwake.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +57,7 @@
 
 /* Begin PBXFileReference section */
 		130C18052DFAA17500A9F556 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		13724FC02E125C3E0071055E /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
 		137DE3902D77743200E22525 /* OnboardingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewController.swift; sourceTree = "<group>"; };
 		13BF0DDF2D35EAA600D23495 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
 		13BF0DE02D35EAA600D23495 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Main.strings; sourceTree = "<group>"; };
@@ -91,10 +92,12 @@
 		13E84A732C8951F700C933F6 /* modan.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = modan.mp3; sourceTree = "<group>"; };
 		13E84A742C8951F700C933F6 /* siren.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = siren.mp3; sourceTree = "<group>"; };
 		13E84A752C8951F700C933F6 /* kind.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = kind.mp3; sourceTree = "<group>"; };
-		78A6F1DA53BF0A66CB951CA7 /* Pods-locationwake.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-locationwake.debug.xcconfig"; path = "Target Support Files/Pods-locationwake/Pods-locationwake.debug.xcconfig"; sourceTree = "<group>"; };
-		C1092AAAFB7B84C8DD6C6359 /* Pods-locationwake.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-locationwake.release.xcconfig"; path = "Target Support Files/Pods-locationwake/Pods-locationwake.release.xcconfig"; sourceTree = "<group>"; };
 		F35D748A9EC20B23C6171DBB /* Pods_locationwake.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_locationwake.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		13A294672E0153A30074DA9C /* SwiftUIView */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = SwiftUIView; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		13E84A122C86B4F500C933F6 /* Frameworks */ = {
@@ -102,7 +105,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				139920582DEEB9FF009E330E /* GoogleMobileAds in Frameworks */,
-				19C520D6C59602621C2C5816 /* Pods_locationwake.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -123,15 +125,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		008D3ADEA2CDFE9839EEDB0E /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				78A6F1DA53BF0A66CB951CA7 /* Pods-locationwake.debug.xcconfig */,
-				C1092AAAFB7B84C8DD6C6359 /* Pods-locationwake.release.xcconfig */,
-			);
-			path = Pods;
-			sourceTree = "<group>";
-		};
 		13E84A0C2C86B4F500C933F6 = {
 			isa = PBXGroup;
 			children = (
@@ -140,7 +133,6 @@
 				13E84A2E2C86B4F700C933F6 /* locationwakeTests */,
 				13E84A382C86B4F700C933F6 /* locationwakeUITests */,
 				13E84A162C86B4F500C933F6 /* Products */,
-				008D3ADEA2CDFE9839EEDB0E /* Pods */,
 				939B7D5353133714C45EE2A6 /* Frameworks */,
 			);
 			sourceTree = "<group>";
@@ -158,6 +150,7 @@
 		13E84A172C86B4F500C933F6 /* locationwake */ = {
 			isa = PBXGroup;
 			children = (
+				13A294672E0153A30074DA9C /* SwiftUIView */,
 				13B7D32C2CB3D40600BDAD6C /* LaunchScreen.storyboard */,
 				13E84A6C2C87284000C933F6 /* Resources */,
 				13E84A672C87280F00C933F6 /* Helpers */,
@@ -225,6 +218,7 @@
 			children = (
 				13E84A592C86C45F00C933F6 /* AlarmScheduler.swift */,
 				13E84A5B2C86C46B00C933F6 /* SoundPlayer.swift */,
+				13724FC02E125C3E0071055E /* HapticManager.swift */,
 			);
 			path = Service;
 			sourceTree = "<group>";
@@ -274,15 +268,16 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13E84A3F2C86B4F700C933F6 /* Build configuration list for PBXNativeTarget "locationwake" */;
 			buildPhases = (
-				D38DD622660E47C6E980F467 /* [CP] Check Pods Manifest.lock */,
 				13E84A112C86B4F500C933F6 /* Sources */,
 				13E84A122C86B4F500C933F6 /* Frameworks */,
 				13E84A132C86B4F500C933F6 /* Resources */,
-				8AFE6BFD0F43F9B09DF0A3F0 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				13A294672E0153A30074DA9C /* SwiftUIView */,
 			);
 			name = locationwake;
 			productName = locationwake;
@@ -404,52 +399,6 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXShellScriptBuildPhase section */
-		8AFE6BFD0F43F9B09DF0A3F0 /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-locationwake/Pods-locationwake-resources-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			inputPaths = (
-			);
-			name = "[CP] Copy Pods Resources";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-locationwake/Pods-locationwake-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-locationwake/Pods-locationwake-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		D38DD622660E47C6E980F467 /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-locationwake-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-/* End PBXShellScriptBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
 		13E84A112C86B4F500C933F6 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -459,6 +408,7 @@
 				13E84A502C86C32C00C933F6 /* Sound.swift in Sources */,
 				13E84A562C86C44200C933F6 /* AlarmDetailViewController.swift in Sources */,
 				13E84A5E2C86C48C00C933F6 /* DateFormatter+Extensions.swift in Sources */,
+				13724FC12E125C420071055E /* HapticManager.swift in Sources */,
 				13E84A5C2C86C46B00C933F6 /* SoundPlayer.swift in Sources */,
 				13D2F0482D730F6700A35BD9 /* BaseViewController.swift in Sources */,
 				13E84A722C88AA2400C933F6 /* AlarmTableViewCell.swift in Sources */,
@@ -653,19 +603,18 @@
 		};
 		13E84A402C86B4F700C933F6 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 78A6F1DA53BF0A66CB951CA7 /* Pods-locationwake.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = A9Q2MN2H6M;
+				DSTROOT = "";
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = locationwake/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "起きなはれ";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "このアプリは設定した場所に到達した時にアラームを鳴らすために位置情報を使用します。位置情報がないとアラーム機能が動作しません。";
-				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "このアプリはバックグラウンドでも設定した場所に到達した時にアラームを鳴らすために位置情報を常に使用します。位置情報がないとアラーム機能が動作しません。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "このアプリは設定した場所に到達した時にアラームを鳴らすために位置情報を使用します。位置情報がないとアラーム機能が動作しません。";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -676,7 +625,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.04;
+				MARKETING_VERSION = 1.52;
 				PRODUCT_BUNDLE_IDENTIFIER = monkey.locationwake;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -690,19 +639,18 @@
 		};
 		13E84A412C86B4F700C933F6 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C1092AAAFB7B84C8DD6C6359 /* Pods-locationwake.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = A9Q2MN2H6M;
+				DSTROOT = "";
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = locationwake/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "起きなはれ";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "このアプリは設定した場所に到達した時にアラームを鳴らすために位置情報を使用します。位置情報がないとアラーム機能が動作しません。";
-				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "このアプリはバックグラウンドでも設定した場所に到達した時にアラームを鳴らすために位置情報を常に使用します。位置情報がないとアラーム機能が動作しません。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "このアプリは設定した場所に到達した時にアラームを鳴らすために位置情報を使用します。位置情報がないとアラーム機能が動作しません。";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -713,7 +661,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.04;
+				MARKETING_VERSION = 1.52;
 				PRODUCT_BUNDLE_IDENTIFIER = monkey.locationwake;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

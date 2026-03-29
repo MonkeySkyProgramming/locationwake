@@ -1,4 +1,5 @@
 import UIKit
+import SwiftUI
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
@@ -7,7 +8,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     let soundPlayer = SoundPlayer.shared
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
-        guard let _ = (scene as? UIWindowScene) else { return }
+        guard let windowScene = (scene as? UIWindowScene) else { return }
+
+        let window = UIWindow(windowScene: windowScene)
+        window.rootViewController = UIHostingController(rootView: AlarmListSwiftUIView())
+        self.window = window
+        window.makeKeyAndVisible()
+        _ = LocationManager.shared
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {}
@@ -15,6 +22,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneDidBecomeActive(_ scene: UIScene) {
         // アプリがアクティブになった際にサウンドを停止
         soundPlayer.stopSound()
+        HapticManager.stop()
     }
 
     func sceneWillResignActive(_ scene: UIScene) {}
