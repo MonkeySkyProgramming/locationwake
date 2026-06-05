@@ -65,7 +65,7 @@ struct SettingView: View {
                 }
             }
         }
-        .onChange(of: hasSeenOnboarding) { newValue in
+        .onChange(of: hasSeenOnboarding) { _, newValue in
             if newValue == false {
                 NotificationCenter.default.post(name: NSNotification.Name("ShowHelpOverlay"), object: nil)
             }

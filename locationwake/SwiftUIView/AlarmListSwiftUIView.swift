@@ -59,12 +59,8 @@ class NavigationModel: ObservableObject {
 
 struct AlarmListSwiftUIView: View {
     @ObservedObject var viewModel = AlarmListViewModel()
-    @State private var showSettings = false
     @State private var showHelp = false
-    @State private var showAddAlarm = false
-    @State private var selectedAlarm: Alarm?
     @AppStorage("hasSeenOnboarding") var hasSeenOnboarding: Bool = false
-    @State private var navigationTrigger = false
     @StateObject private var navigationModel = NavigationModel()
 
     var body: some View {
@@ -143,9 +139,13 @@ struct AlarmListSwiftUIView: View {
                 print("🔁 アラームリスト再読み込み onAppear")
 
                 print("🧭 startMonitoringに渡すアラーム: \(viewModel.alarms.map { "\($0.name): \($0.isAlarmEnabled)" })")
-                LocationManager.shared.startMonitoring(alarms: viewModel.alarms)
+                if !AppRuntime.shouldSuppressExternalSideEffects {
+                    LocationManager.shared.startMonitoring(alarms: viewModel.alarms)
+                }
 
-                if !hasSeenOnboarding {
+                if AppRuntime.isUITesting {
+                    hasSeenOnboarding = true
+                } else if !hasSeenOnboarding {
                     showHelp = true
                     hasSeenOnboarding = true
                 }
@@ -153,11 +153,13 @@ struct AlarmListSwiftUIView: View {
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowHelpOverlay"))) { _ in
                 showHelp = true
             }
-            .onChange(of: navigationModel.path) { newPath in
+            .onChange(of: navigationModel.path) { _, newPath in
                 if newPath.isEmpty {
                     print("他の画面から戻ったため再読み込み")
                     viewModel.loadAlarms()
-                    LocationManager.shared.startMonitoring(alarms: viewModel.alarms)
+                    if !AppRuntime.shouldSuppressExternalSideEffects {
+                        LocationManager.shared.startMonitoring(alarms: viewModel.alarms)
+                    }
                 }
             }
         }
@@ -176,26 +178,7 @@ class AlarmListViewModel: ObservableObject {
         if let savedAlarms = UserDefaults.standard.object(forKey: "SavedAlarms") as? Data {
             let decoder = JSONDecoder()
             if let loadedAlarms = try? decoder.decode([Alarm].self, from: savedAlarms) {
-                // Backward compatibility: patch missing properties
-                self.alarms = loadedAlarms.map { alarm in
-                    var patchedAlarm = alarm
-                    if patchedAlarm.repeatWeekdays == nil {
-                        patchedAlarm.repeatWeekdays = []
-                    }
-                    if patchedAlarm.hasTriggered == nil {
-                        patchedAlarm.hasTriggered = false
-                    }
-                    if patchedAlarm.hasTriggeredUntilExit == nil {
-                        patchedAlarm.hasTriggeredUntilExit = false
-                    }
-                    if patchedAlarm.isVibrationEnabled == nil {
-                        patchedAlarm.isVibrationEnabled = false
-                    }
-                    if patchedAlarm.id == nil {
-                        patchedAlarm.id = UUID().uuidString
-                    }
-                    return patchedAlarm
-                }
+                self.alarms = loadedAlarms
                 print("✅ 読み込み成功: \(alarms.map { $0.name })")
             }
         }
@@ -226,35 +209,23 @@ class AlarmListViewModel: ObservableObject {
             UserDefaults.standard.set(encoded, forKey: "SavedAlarms")
             print("💾 アラーム保存: \(alarms.map { $0.name })")
         }
-        LocationManager.shared.startMonitoring(alarms: alarms)
+        if !AppRuntime.shouldSuppressExternalSideEffects {
+            LocationManager.shared.startMonitoring(alarms: alarms)
+        }
     }
 
     func deleteAlarm(at offsets: IndexSet) {
+        let deletedAlarms = offsets.map { alarms[$0] }
         alarms.remove(atOffsets: offsets)
+        if !AppRuntime.shouldSuppressExternalSideEffects {
+            deletedAlarms.forEach { LocationManager.shared.stopMonitoringForAlarm(alarm: $0) }
+        }
         saveAlarms()
-        LocationManager.shared.startMonitoring(alarms: alarms)
     }
 
     @objc private func handleAlarmUpdated() {
         DispatchQueue.main.async {
             self.loadAlarms()
         }
-    }
-}
-
-// Wrapper to present UIKit ViewControllers from Storyboard in SwiftUI
-struct StoryboardViewControllerWrapper: UIViewControllerRepresentable {
-    let storyboardName: String
-    let viewControllerIdentifier: String
-    var alarm: Alarm? = nil
-
-    func makeUIViewController(context: Context) -> UIViewController {
-        let storyboard = UIStoryboard(name: storyboardName, bundle: nil)
-        let vc = storyboard.instantiateViewController(withIdentifier: viewControllerIdentifier)
-        return vc
-    }
-
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
-        // No update logic needed
     }
 }

@@ -8,6 +8,52 @@ protocol LocationManagerDelegate: AnyObject {
     func didUpdateAlarmStatus(_ alarm: Alarm)
 }
 
+enum AlarmTriggerBlockReason: Equatable {
+    case disabled
+    case weekdayMismatch
+    case triggeredUntilExit
+    case memorySkip
+    case storedSkipFlag
+    case savedTooRecently
+}
+
+struct AlarmTriggerPolicy {
+    static let saveSkipInterval: TimeInterval = 10
+
+    static func weekdayIndex(for date: Date, calendar: Calendar = .current) -> Int {
+        calendar.component(.weekday, from: date) - 1
+    }
+
+    static func blockReason(
+        for alarm: Alarm,
+        weekday: Int,
+        hasMemorySkip: Bool = false,
+        hasStoredSkipFlag: Bool = false,
+        savedAt: Date? = nil,
+        now: Date = Date()
+    ) -> AlarmTriggerBlockReason? {
+        if hasMemorySkip {
+            return .memorySkip
+        }
+        if hasStoredSkipFlag {
+            return .storedSkipFlag
+        }
+        if let savedAt, now.timeIntervalSince(savedAt) < saveSkipInterval {
+            return .savedTooRecently
+        }
+        if alarm.hasTriggeredUntilExit {
+            return .triggeredUntilExit
+        }
+        if !alarm.isAlarmEnabled {
+            return .disabled
+        }
+        if let repeatDays = alarm.repeatWeekdays, !repeatDays.isEmpty, !repeatDays.contains(weekday) {
+            return .weekdayMismatch
+        }
+        return nil
+    }
+}
+
 class LocationManager: NSObject, CLLocationManagerDelegate {
     static let shared = LocationManager()
     weak var delegate: LocationManagerDelegate? // デリゲートプロパティ
@@ -22,11 +68,18 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     var skipNames: Set<String> = []
 
     private var soundPlayer = SoundPlayer.shared
+    private let alarmScheduler = AlarmScheduler()
     private var isShowingAlwaysAlert = false
 
     override init() {
         locationManager = CLLocationManager()
         super.init()
+        locationManager.delegate = self
+
+        guard !AppRuntime.shouldSuppressExternalSideEffects else {
+            return
+        }
+
         // 必要な設定: バックグラウンド位置情報更新を有効化し、自動停止を無効化
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.pausesLocationUpdatesAutomatically = false
@@ -37,7 +90,6 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         } else {
             print("✅ locationManager.authorizationStatus により常に許可が検出されました")
         }
-        locationManager.delegate = self
         // 認可ステータスの変化確認のために毎回チェック
         self.locationManagerDidChangeAuthorization(self.locationManager)
         locationManager.startUpdatingLocation()
@@ -72,7 +124,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     func startMonitoringGeofenceStatus() {
         monitoringTimer?.invalidate() // 既存のタイマーがあれば停止
         // 追加: 現在の許可ステータスを確認し、ユーザーに案内
-        let currentStatus = CLLocationManager.authorizationStatus()
+        let currentStatus = locationManager.authorizationStatus
         if currentStatus != .authorizedAlways {
             print("⚠️ アプリの設定で『常に許可』に変更してください → 位置情報がバックグラウンドで必要です。")
         }
@@ -85,7 +137,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     func startMonitoring(alarms: [Alarm], skipImmediateCheck: Bool = false) {
         self.alarms = alarms // アラームを保持
         if let currentLocation = locationManager.location?.coordinate, !skipImmediateCheck {
-            for alarm in alarms {
+            for alarm in Self.geofenceEligibleAlarms(from: alarms) {
                 if UserDefaults.standard.bool(forKey: "SkipTrigger_\(alarm.name)") {
                     print("🚫 \(alarm.name) は保存直後のため startMonitoring でトリガーをスキップ")
                     UserDefaults.standard.set(false, forKey: "SkipTrigger_\(alarm.name)") // Reset flag
@@ -153,11 +205,16 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     }
 
     // 新しいジオフェンスを追加
+    static func geofenceEligibleAlarms(from alarms: [Alarm]) -> [Alarm] {
+        alarms.filter { alarm in
+            alarm.isAlarmEnabled && alarm.location != nil && alarm.radius != nil
+        }
+    }
+
     func addGeofences(for alarms: [Alarm]) {
-        for alarm in alarms {
+        for alarm in Self.geofenceEligibleAlarms(from: alarms) {
 
             print("⚙️ addGeofence 対象: \(alarm.name), 緯度: \(alarm.location?.latitude ?? 0), 半径: \(alarm.radius ?? 0), 有効: \(alarm.isAlarmEnabled)")
-            // すべてのアラームに対してジオフェンスを設定するため、isAlarmEnabled のチェックは削除
             guard let location = alarm.location, let radius = alarm.radius else {
                 print("アラーム \(alarm.name) の位置情報または半径が無効です")
                 print("⛔ スキップされたアラーム: \(alarm.name)")
@@ -197,15 +254,10 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         if let circularRegion = region as? CLCircularRegion {
             print("Geofence領域に入りました: \(circularRegion.identifier)")
             // アラーム名に基づいてアラームを検索し、サウンドを再生
-            if let alarm = findAlarm(for: circularRegion.identifier), alarm.isAlarmEnabled {
-                let today = Calendar.current.component(.weekday, from: Date()) - 1 // Sunday = 0
-                if let repeatDays = alarm.repeatWeekdays, !repeatDays.isEmpty, !repeatDays.contains(today) {
-                    print("アラーム \(alarm.name) は本日(\(today))は繰り返し対象外のためスキップ")
-                    return
-                }
-                // hasTriggeredUntilExit チェック
-                if alarm.hasTriggeredUntilExit {
-                    print("🚫 \(alarm.name) は hasTriggeredUntilExit = true のためスキップ")
+            if let alarm = findAlarm(for: circularRegion.identifier) {
+                let today = AlarmTriggerPolicy.weekdayIndex(for: Date())
+                if let reason = AlarmTriggerPolicy.blockReason(for: alarm, weekday: today) {
+                    print("🚫 \(alarm.name) は \(reason) のためスキップ")
                     return
                 }
                 triggerAlarm(for: alarm)
@@ -236,54 +288,48 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
     // アラームをトリガーする処理（サウンド名を使用）
     private func triggerAlarm(for alarm: Alarm) {
-        if skipNames.contains(alarm.name) {
-            print("🚫 \(alarm.name) は保存直後（メモリ）でトリガーをスキップ")
-            skipNames.remove(alarm.name)
-            return
-        }
         let skipKey = "SkipTrigger_\(alarm.name)"
-        if UserDefaults.standard.bool(forKey: skipKey) {
-            print("🚫 \(alarm.name) は保存直後のためトリガーをスキップ（フラグによる）")
-            UserDefaults.standard.set(false, forKey: skipKey) // Reset after skipping
+        let skipTimestampKey = "SkipTriggerAt_\(alarm.name)"
+        let savedDate = UserDefaults.standard.object(forKey: skipTimestampKey) as? Date
+        let today = AlarmTriggerPolicy.weekdayIndex(for: Date())
+
+        if let blockReason = AlarmTriggerPolicy.blockReason(
+            for: alarm,
+            weekday: today,
+            hasMemorySkip: skipNames.contains(alarm.name),
+            hasStoredSkipFlag: UserDefaults.standard.bool(forKey: skipKey),
+            savedAt: savedDate
+        ) {
+            switch blockReason {
+            case .memorySkip:
+                print("🚫 \(alarm.name) は保存直後（メモリ）でトリガーをスキップ")
+                skipNames.remove(alarm.name)
+            case .storedSkipFlag:
+                print("🚫 \(alarm.name) は保存直後のためトリガーをスキップ（フラグによる）")
+                UserDefaults.standard.set(false, forKey: skipKey)
+            case .savedTooRecently:
+                if let savedDate {
+                    let interval = Date().timeIntervalSince(savedDate)
+                    print("⏳ 保存から \(interval) 秒未満のため \(alarm.name) トリガーをスキップ")
+                }
+            case .triggeredUntilExit:
+                print("🚫 \(alarm.name) は hasTriggeredUntilExit = true のためトリガーしません")
+            case .disabled:
+                print("🚫 \(alarm.name) は isAlarmEnabled が false のためトリガーしません")
+            case .weekdayMismatch:
+                print("🚫 \(alarm.name) は本日(\(today))は繰り返し対象外のためトリガーしません")
+            }
             return
         }
-        let skipTimestampKey = "SkipTriggerAt_\(alarm.name)"
-        if let savedDate = UserDefaults.standard.object(forKey: skipTimestampKey) as? Date {
+
+        if let savedDate {
             let interval = Date().timeIntervalSince(savedDate)
-            if interval < 10 {
-                print("⏳ 保存から \(interval) 秒未満のため \(alarm.name) トリガーをスキップ")
-                return
-            } else {
+            if interval >= AlarmTriggerPolicy.saveSkipInterval {
                 UserDefaults.standard.removeObject(forKey: skipTimestampKey)
             }
         }
 
-        // アラームがトリガー禁止状態ならスキップ
-        if alarm.hasTriggeredUntilExit {
-            print("🚫 \(alarm.name) は hasTriggeredUntilExit = true のためトリガーしません")
-            return
-        }
-
-        // 曜日チェックとアラーム有効状態を確認
-        let today = Calendar.current.component(.weekday, from: Date()) - 1 // Sunday = 0
-        if !alarm.isAlarmEnabled {
-            print("🚫 \(alarm.name) は isAlarmEnabled が false のためトリガーしません")
-            return
-        }
-        if let repeatDays = alarm.repeatWeekdays, !repeatDays.isEmpty {
-            if !repeatDays.contains(today) {
-                print("🚫 \(alarm.name) は本日(\(today))は繰り返し対象外のためトリガーしません")
-                return
-            }
-        }
-
-        // 通知を削除してから新規スケジュール
-        NotificationManager.shared.removeNotification(identifier: alarm.name)
-        NotificationManager.shared.scheduleNotification(
-            withTitle: "アラーム",
-            message: "\(alarm.name)に到達しました！",
-            identifier: alarm.name
-        )
+        alarmScheduler.scheduleAlarm(alarm: alarm)
         let soundName = alarm.sound
         
         if alarm.isSoundEnabled {
@@ -337,6 +383,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
                 print("アラームの監視を停止しました: \(alarm.name)")
             }
         }
+        alarmScheduler.cancelAlarm(alarm: alarm)
         print("監視解除後の領域: \(locationManager.monitoredRegions.map { $0.identifier })")
     }
     // ユーザーの現在位置を継続的に出力
@@ -524,4 +571,3 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         }
     }
 }
-

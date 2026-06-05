@@ -9,11 +9,8 @@
 /* Begin PBXBuildFile section */
 		130C18062DFAA17500A9F556 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 130C18052DFAA17500A9F556 /* .gitignore */; };
 		13724FC12E125C420071055E /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13724FC02E125C3E0071055E /* HapticManager.swift */; };
-		137DE3912D77743200E22525 /* OnboardingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137DE3902D77743200E22525 /* OnboardingViewController.swift */; };
 		139920582DEEB9FF009E330E /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 139920572DEEB9FF009E330E /* GoogleMobileAds */; };
 		13B7D32D2CB3D40600BDAD6C /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 13B7D32C2CB3D40600BDAD6C /* LaunchScreen.storyboard */; };
-		13BF0DE52D35EE8B00D23495 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A1E2C86B4F500C933F6 /* Main.storyboard */; };
-		13D2F0482D730F6700A35BD9 /* BaseViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13D2F0472D730F6700A35BD9 /* BaseViewController.swift */; };
 		13E84A192C86B4F500C933F6 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A182C86B4F500C933F6 /* AppDelegate.swift */; };
 		13E84A1B2C86B4F500C933F6 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A1A2C86B4F500C933F6 /* SceneDelegate.swift */; };
 		13E84A222C86B4F700C933F6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A212C86B4F700C933F6 /* Assets.xcassets */; };
@@ -22,17 +19,11 @@
 		13E84A3C2C86B4F700C933F6 /* locationwakeUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A3B2C86B4F700C933F6 /* locationwakeUITestsLaunchTests.swift */; };
 		13E84A4A2C86C2CD00C933F6 /* Alarm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A492C86C2CD00C933F6 /* Alarm.swift */; };
 		13E84A502C86C32C00C933F6 /* Sound.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A4F2C86C32C00C933F6 /* Sound.swift */; };
-		13E84A562C86C44200C933F6 /* AlarmDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A552C86C44200C933F6 /* AlarmDetailViewController.swift */; };
-		13E84A582C86C45000C933F6 /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A572C86C45000C933F6 /* SettingsViewController.swift */; };
 		13E84A5A2C86C45F00C933F6 /* AlarmScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A592C86C45F00C933F6 /* AlarmScheduler.swift */; };
 		13E84A5C2C86C46B00C933F6 /* SoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A5B2C86C46B00C933F6 /* SoundPlayer.swift */; };
 		13E84A5E2C86C48C00C933F6 /* DateFormatter+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A5D2C86C48C00C933F6 /* DateFormatter+Extensions.swift */; };
 		13E84A602C86C49D00C933F6 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A5F2C86C49D00C933F6 /* NotificationManager.swift */; };
-		13E84A622C86F60800C933F6 /* AlarmListViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A612C86F60800C933F6 /* AlarmListViewController.swift */; };
-		13E84A662C8727E400C933F6 /* LocationSelectionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A652C8727E400C933F6 /* LocationSelectionViewController.swift */; };
 		13E84A692C87282A00C933F6 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A682C87282A00C933F6 /* LocationManager.swift */; };
-		13E84A712C88AA2400C933F6 /* AlarmTableViewCell.xib in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A702C88AA2400C933F6 /* AlarmTableViewCell.xib */; };
-		13E84A722C88AA2400C933F6 /* AlarmTableViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A6F2C88AA2400C933F6 /* AlarmTableViewCell.swift */; };
 		13E84A762C8951F700C933F6 /* modan.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A732C8951F700C933F6 /* modan.mp3 */; };
 		13E84A772C8951F700C933F6 /* siren.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A742C8951F700C933F6 /* siren.mp3 */; };
 		13E84A782C8951F700C933F6 /* kind.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A752C8951F700C933F6 /* kind.mp3 */; };
@@ -58,14 +49,9 @@
 /* Begin PBXFileReference section */
 		130C18052DFAA17500A9F556 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		13724FC02E125C3E0071055E /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
-		137DE3902D77743200E22525 /* OnboardingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewController.swift; sourceTree = "<group>"; };
 		13BF0DDF2D35EAA600D23495 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		13BF0DE02D35EAA600D23495 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Main.strings; sourceTree = "<group>"; };
 		13BF0DE12D35EAB700D23495 /* ja */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = ja; path = ja.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
-		13BF0DE22D35EAB900D23495 /* ja */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = ja; path = ja.lproj/Main.storyboard; sourceTree = "<group>"; };
 		13BF0DE32D35EAEF00D23495 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		13BF0DE42D35EAEF00D23495 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Main.strings; sourceTree = "<group>"; };
-		13D2F0472D730F6700A35BD9 /* BaseViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseViewController.swift; sourceTree = "<group>"; };
 		13E84A152C86B4F500C933F6 /* locationwake.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = locationwake.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13E84A182C86B4F500C933F6 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		13E84A1A2C86B4F500C933F6 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -78,17 +64,11 @@
 		13E84A3B2C86B4F700C933F6 /* locationwakeUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = locationwakeUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		13E84A492C86C2CD00C933F6 /* Alarm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Alarm.swift; sourceTree = "<group>"; };
 		13E84A4F2C86C32C00C933F6 /* Sound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sound.swift; sourceTree = "<group>"; };
-		13E84A552C86C44200C933F6 /* AlarmDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmDetailViewController.swift; sourceTree = "<group>"; };
-		13E84A572C86C45000C933F6 /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
 		13E84A592C86C45F00C933F6 /* AlarmScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmScheduler.swift; sourceTree = "<group>"; };
 		13E84A5B2C86C46B00C933F6 /* SoundPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPlayer.swift; sourceTree = "<group>"; };
 		13E84A5D2C86C48C00C933F6 /* DateFormatter+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DateFormatter+Extensions.swift"; sourceTree = "<group>"; };
 		13E84A5F2C86C49D00C933F6 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
-		13E84A612C86F60800C933F6 /* AlarmListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmListViewController.swift; sourceTree = "<group>"; };
-		13E84A652C8727E400C933F6 /* LocationSelectionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSelectionViewController.swift; sourceTree = "<group>"; };
 		13E84A682C87282A00C933F6 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
-		13E84A6F2C88AA2400C933F6 /* AlarmTableViewCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmTableViewCell.swift; sourceTree = "<group>"; };
-		13E84A702C88AA2400C933F6 /* AlarmTableViewCell.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = AlarmTableViewCell.xib; sourceTree = "<group>"; };
 		13E84A732C8951F700C933F6 /* modan.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = modan.mp3; sourceTree = "<group>"; };
 		13E84A742C8951F700C933F6 /* siren.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = siren.mp3; sourceTree = "<group>"; };
 		13E84A752C8951F700C933F6 /* kind.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = kind.mp3; sourceTree = "<group>"; };
@@ -156,8 +136,6 @@
 				13E84A672C87280F00C933F6 /* Helpers */,
 				13E84A4E2C86C30C00C933F6 /* Utility */,
 				13E84A4D2C86C30100C933F6 /* Service */,
-				13E84A4C2C86C2F700C933F6 /* Controller */,
-				13E84A4B2C86C2EE00C933F6 /* View */,
 				13E84A482C86C2B600C933F6 /* Model */,
 				13E84A182C86B4F500C933F6 /* AppDelegate.swift */,
 				13E84A1A2C86B4F500C933F6 /* SceneDelegate.swift */,
@@ -191,28 +169,6 @@
 			path = Model;
 			sourceTree = "<group>";
 		};
-		13E84A4B2C86C2EE00C933F6 /* View */ = {
-			isa = PBXGroup;
-			children = (
-				13E84A6F2C88AA2400C933F6 /* AlarmTableViewCell.swift */,
-				13E84A702C88AA2400C933F6 /* AlarmTableViewCell.xib */,
-			);
-			path = View;
-			sourceTree = "<group>";
-		};
-		13E84A4C2C86C2F700C933F6 /* Controller */ = {
-			isa = PBXGroup;
-			children = (
-				13E84A552C86C44200C933F6 /* AlarmDetailViewController.swift */,
-				13E84A572C86C45000C933F6 /* SettingsViewController.swift */,
-				13E84A612C86F60800C933F6 /* AlarmListViewController.swift */,
-				13E84A652C8727E400C933F6 /* LocationSelectionViewController.swift */,
-				13D2F0472D730F6700A35BD9 /* BaseViewController.swift */,
-				137DE3902D77743200E22525 /* OnboardingViewController.swift */,
-			);
-			path = Controller;
-			sourceTree = "<group>";
-		};
 		13E84A4D2C86C30100C933F6 /* Service */ = {
 			isa = PBXGroup;
 			children = (
@@ -243,12 +199,11 @@
 		13E84A6C2C87284000C933F6 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				13E84A752C8951F700C933F6 /* kind.mp3 */,
-				13E84A732C8951F700C933F6 /* modan.mp3 */,
-				13E84A742C8951F700C933F6 /* siren.mp3 */,
-				13E84A1E2C86B4F500C933F6 /* Main.storyboard */,
-				13E84A262C86B4F700C933F6 /* Info.plist */,
-				13E84A212C86B4F700C933F6 /* Assets.xcassets */,
+					13E84A752C8951F700C933F6 /* kind.mp3 */,
+					13E84A732C8951F700C933F6 /* modan.mp3 */,
+					13E84A742C8951F700C933F6 /* siren.mp3 */,
+					13E84A262C86B4F700C933F6 /* Info.plist */,
+					13E84A212C86B4F700C933F6 /* Assets.xcassets */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -373,9 +328,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				130C18062DFAA17500A9F556 /* .gitignore in Resources */,
-				13BF0DE52D35EE8B00D23495 /* Main.storyboard in Resources */,
 				13E84A222C86B4F700C933F6 /* Assets.xcassets in Resources */,
-				13E84A712C88AA2400C933F6 /* AlarmTableViewCell.xib in Resources */,
 				13E84A782C8951F700C933F6 /* kind.mp3 in Resources */,
 				13E84A762C8951F700C933F6 /* modan.mp3 in Resources */,
 				13B7D32D2CB3D40600BDAD6C /* LaunchScreen.storyboard in Resources */,
@@ -404,23 +357,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				13E84A662C8727E400C933F6 /* LocationSelectionViewController.swift in Sources */,
 				13E84A502C86C32C00C933F6 /* Sound.swift in Sources */,
-				13E84A562C86C44200C933F6 /* AlarmDetailViewController.swift in Sources */,
 				13E84A5E2C86C48C00C933F6 /* DateFormatter+Extensions.swift in Sources */,
 				13724FC12E125C420071055E /* HapticManager.swift in Sources */,
 				13E84A5C2C86C46B00C933F6 /* SoundPlayer.swift in Sources */,
-				13D2F0482D730F6700A35BD9 /* BaseViewController.swift in Sources */,
-				13E84A722C88AA2400C933F6 /* AlarmTableViewCell.swift in Sources */,
-				13E84A622C86F60800C933F6 /* AlarmListViewController.swift in Sources */,
 				13E84A192C86B4F500C933F6 /* AppDelegate.swift in Sources */,
 				13E84A602C86C49D00C933F6 /* NotificationManager.swift in Sources */,
 				13E84A1B2C86B4F500C933F6 /* SceneDelegate.swift in Sources */,
-				137DE3912D77743200E22525 /* OnboardingViewController.swift in Sources */,
 				13E84A5A2C86C45F00C933F6 /* AlarmScheduler.swift in Sources */,
 				13E84A692C87282A00C933F6 /* LocationManager.swift in Sources */,
 				13E84A4A2C86C2CD00C933F6 /* Alarm.swift in Sources */,
-				13E84A582C86C45000C933F6 /* SettingsViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -465,16 +411,6 @@
 				13BF0DE32D35EAEF00D23495 /* en */,
 			);
 			name = LaunchScreen.storyboard;
-			sourceTree = "<group>";
-		};
-		13E84A1E2C86B4F500C933F6 /* Main.storyboard */ = {
-			isa = PBXVariantGroup;
-			children = (
-				13BF0DE02D35EAA600D23495 /* ja */,
-				13BF0DE22D35EAB900D23495 /* ja */,
-				13BF0DE42D35EAEF00D23495 /* en */,
-			);
-			name = Main.storyboard;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
@@ -618,7 +554,6 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "このアプリは設定した場所に到達した時にアラームを鳴らすために位置情報を使用します。位置情報がないとアラーム機能が動作しません。";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -654,7 +589,6 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "このアプリは設定した場所に到達した時にアラームを鳴らすために位置情報を使用します。位置情報がないとアラーム機能が動作しません。";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (

@@ -3,6 +3,7 @@ import MapKit
 import AVFoundation
 
 struct AlarmDetailView: View {
+    private let alarmID: String
     var coordinate: CLLocationCoordinate2D
     var placeName: String?
 
@@ -12,7 +13,7 @@ struct AlarmDetailView: View {
     @State private var isSoundEnabled: Bool = true
     @State private var selectedSound: String = "未選択"
     @State private var repeatWeekdays: Set<Int> = []
-    @State private var mapRegion: MKCoordinateRegion
+    @State private var cameraPosition: MapCameraPosition
     @State private var isVibrationEnabled: Bool = true
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var navigationModel: NavigationModel
@@ -23,6 +24,7 @@ struct AlarmDetailView: View {
             latitude: alarm.location?.latitude ?? 0,
             longitude: alarm.location?.longitude ?? 0
         )
+        self.alarmID = alarm.id
         self.coordinate = coordinate
         self.placeName = alarm.name
         _selectedCoordinate = State(initialValue: coordinate)
@@ -31,11 +33,11 @@ struct AlarmDetailView: View {
         _isSoundEnabled = State(initialValue: alarm.isSoundEnabled)
         _selectedSound = State(initialValue: alarm.sound)
         _repeatWeekdays = State(initialValue: Set(alarm.repeatWeekdays ?? []))
-        _mapRegion = State(initialValue: MKCoordinateRegion(
+        _cameraPosition = State(initialValue: .region(MKCoordinateRegion(
             center: coordinate,
             span: MKCoordinateSpan(
                 latitudeDelta: (alarm.radius ?? 3000) / 80000,
-                longitudeDelta: (alarm.radius ?? 3000) / 80000)))
+                longitudeDelta: (alarm.radius ?? 3000) / 80000))))
         _isVibrationEnabled = State(initialValue: alarm.isVibrationEnabled)
     }
 
@@ -58,9 +60,8 @@ struct AlarmDetailView: View {
                 }
 
                 Section(header: Text("位置情報")) {
-                    Map(coordinateRegion: $mapRegion,
-                        annotationItems: [IdentifiableCoordinate(coordinate: selectedCoordinate)]) { item in
-                        MapAnnotation(coordinate: item.coordinate) {
+                    Map(position: $cameraPosition) {
+                        Annotation("", coordinate: selectedCoordinate) {
                             Image(systemName: "mappin")
                                 .foregroundColor(.red)
                         }
@@ -84,13 +85,13 @@ struct AlarmDetailView: View {
                     )
                     .aspectRatio(1, contentMode: .fit)
                     .listRowInsets(EdgeInsets())
-                    .onChange(of: radius) { newValue in
+                    .onChange(of: radius) { _, newValue in
                         let paddingFactor = 1.2  // Add 20% extra margin
-                        mapRegion = MKCoordinateRegion(
+                        cameraPosition = .region(MKCoordinateRegion(
                             center: selectedCoordinate,
                             latitudinalMeters: newValue * 2 * paddingFactor,
                             longitudinalMeters: newValue * 2 * paddingFactor
-                        )
+                        ))
                     }
                     Text("緯度: \(selectedCoordinate.latitude), 経度: \(selectedCoordinate.longitude)")
                         .font(.caption)
@@ -138,7 +139,7 @@ struct AlarmDetailView: View {
 
     func saveCurrentAlarm() {
         let newAlarm = Alarm(
-            id: UUID().uuidString,
+            id: alarmID,
             name: alarmName,
             repeatWeekdays: Array(repeatWeekdays).sorted(),
             sound: selectedSound,
@@ -152,7 +153,7 @@ struct AlarmDetailView: View {
         // Debug print
         print("🔍 保存するアラーム:")
         print("名前: \(newAlarm.name)")
-        print("繰り返し: \(newAlarm.repeatWeekdays)")
+        print("繰り返し: \(newAlarm.repeatWeekdays ?? [])")
         print("音: \(newAlarm.sound)")
         print("有効: \(newAlarm.isAlarmEnabled), 音有効: \(newAlarm.isSoundEnabled)")
         print("バイブレーション有効: \(newAlarm.isVibrationEnabled)")
@@ -161,12 +162,12 @@ struct AlarmDetailView: View {
         } else {
             print("位置情報が設定されていません")
         }
-        print("半径: \(newAlarm.radius)")
+        print("半径: \(newAlarm.radius ?? 0)")
 
         let allAlarms = loadSavedAlarms()
         print("📦 現在保存されているアラーム一覧:")
         for (i, alarm) in allAlarms.enumerated() {
-            print("🔔 [\(i)] \(alarm.name), 繰り返し: \(alarm.repeatWeekdays), 音: \(alarm.sound), 緯度: \(alarm.location?.latitude ?? 0), 経度: \(alarm.location?.longitude ?? 0), 半径: \(alarm.radius)")
+            print("🔔 [\(i)] \(alarm.name), 繰り返し: \(alarm.repeatWeekdays ?? []), 音: \(alarm.sound), 緯度: \(alarm.location?.latitude ?? 0), 経度: \(alarm.location?.longitude ?? 0), 半径: \(alarm.radius ?? 0)")
         }
 
         let skipTimestampKey = "SkipTriggerAt_\(newAlarm.name)"
@@ -335,7 +336,7 @@ struct WeekdayPickerView: View {
             }
         }
         .padding(.vertical, 4)
-        .onChange(of: selectedWeekdays) { newValue in
+        .onChange(of: selectedWeekdays) { _, newValue in
             print("選択された曜日: \(newValue.sorted())")
         }
     }

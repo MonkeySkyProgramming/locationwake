@@ -54,12 +54,13 @@ struct HapticManager {
     }
 
     static func triggerRepeated(_ type: HapticType, count: Int, interval: TimeInterval) {
-        var remaining = count
+        let safeCount = min(max(count, 0), 300)
+        var remaining = safeCount
         var currentInterval = interval
         func scheduleNext() {
             guard remaining > 0 else { return }
             let timer = Timer.scheduledTimer(withTimeInterval: currentInterval, repeats: false) { _ in
-                trigger(.systemVibrate)
+                trigger(type)
                 remaining -= 1
                 currentInterval = max(0.2, currentInterval * 0.8)
                 scheduleNext()

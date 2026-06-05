@@ -167,25 +167,30 @@ xcodebuild test \
 - `Alarm` の JSON round-trip
 - trigger 状態と vibration 状態の保持
 - `NavigationRoute` の id ベース等価判定
+- `AlarmScheduler` の通知 ID、通知内容、キャンセル可能な安定 ID
+- `LocationManager` の geofence 登録対象フィルタ
+- `AlarmTriggerPolicy` の有効状態、曜日、保存直後スキップ、範囲外に出るまでの再発火抑制
+- 単体テスト時の外部副作用抑制
 
-## 既知の課題
+UI test は以下を検証します。
 
-- `AlarmScheduler.scheduleAlarm` は通知リクエストを登録していません。
-- `AlarmScheduler.cancelAlarm` はランダム UUID を指定しているため、既存通知を正しく削除できません。
-- `LocationManager` の初期化時に権限要求、通知許可、位置更新、タイマー開始が走るため、テストと UI test が重く不安定になりやすいです。
-- `LocationManager.addGeofences` は現状 `isAlarmEnabled` を見ずに監視登録します。
-- `triggerAlarm` が通知、音声、バイブレーション、永続化、監視再登録をまとめて持っており、単体テストしづらいです。
-- `HapticManager.triggerRepeated` に非常に大きい回数を渡すと、停止漏れ時に振動が続きます。
-- `AppDelegate` と `SceneDelegate` の両方で root UI を構築しており、起動経路が分かりづらいです。
-- UIKit 版の旧 Controller/View ファイルは全行コメントアウトされており、削除または復活方針の決定が必要です。
-- SwiftUI の Map API と `onChange` に iOS 17 以降の非推奨警告があります。
-- `AdMobID` が広告ユニット ID をランダム選択しており、再現性がありません。
+- アプリが UI test 起動オプション付きで起動し、アラーム一覧を表示できること。
+- Launch test が UI test 起動オプション付きで成功すること。
+
+## 実装メモ
+
+- `AlarmScheduler` は alarm ID を通知リクエスト ID として使い、ID が空の場合のみ名称にフォールバックします。
+- テスト時は `AppRuntime.shouldSuppressExternalSideEffects` により、位置情報、通知許可、広告、ATT などの外部副作用を抑制します。
+- Geofence 登録対象は、有効かつ位置情報と半径を持つアラームに限定します。
+- 発火可否の主要判定は `AlarmTriggerPolicy` に分離し、単体テストで検証します。
+- UI の root は `SceneDelegate` 側に集約し、旧 UIKit Controller/View と Storyboard は削除しています。
+- SwiftUI の `Map` と `onChange` は iOS 18 対応 API に更新しています。
+- AdMob banner unit ID は固定値を返し、ランダム選択は行いません。
 
 ## 今後の改善方針
 
-1. テスト時に位置情報・通知・広告・音声の副作用を止められる起動オプションを追加する。
-2. `AlarmScheduler` を alarm ID ベースで実装し、通知登録・削除をテストする。
-3. 無効アラームを geofence 登録しないようにする。
-4. 発火判定を `AlarmTriggerPolicy` として切り出し、曜日、発火済み、保存直後スキップを単体テストする。
-5. `LocationManager` から永続化、通知、音声、バイブレーションの責務を段階的に分離する。
-6. 旧 UIKit ファイル、警告、AdMob ID 選択ロジックを別作業で整理する。
+1. `LocationManager` から永続化、通知、音声、バイブレーションの実行責務をさらに分離する。
+2. Geofence identifier を alarm name ではなく alarm ID に寄せ、同名アラームでも衝突しないようにする。
+3. `UserDefaults` 直書き部分をリポジトリ層にまとめ、保存キーとマイグレーションを管理しやすくする。
+4. 実機で「常に許可」、バックグラウンド位置監視、通知音、バイブレーション、AdMob/ATT の統合確認を行う。
+5. UI test をアラーム作成、編集、削除、設定変更まで拡張する。

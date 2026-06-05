@@ -5,21 +5,31 @@ import CoreLocation
 import GoogleMobileAds   // Google Mobile Ads SDK をインポート
 import SwiftUI
 
+enum AppRuntime {
+    static var isUITesting: Bool {
+        ProcessInfo.processInfo.arguments.contains("--ui-testing")
+    }
+
+    static var isUnitTesting: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
+    static var shouldSuppressExternalSideEffects: Bool {
+        isUnitTesting || isUITesting
+    }
+}
+
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
-    var window: UIWindow?
-    var locationManager: CLLocationManager?
-
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        locationManager = CLLocationManager()
-        locationManager?.requestAlwaysAuthorization()
-        
-        MobileAds.shared.start { _ in }
-        
-        if #available(iOS 14, *) {
-            ATTrackingManager.requestTrackingAuthorization { status in
-                print("ATT ステータス: \(status.rawValue)")
+        if !AppRuntime.shouldSuppressExternalSideEffects {
+            MobileAds.shared.start { _ in }
+
+            if #available(iOS 14, *) {
+                ATTrackingManager.requestTrackingAuthorization { status in
+                    print("ATT ステータス: \(status.rawValue)")
+                }
             }
         }
         
@@ -39,17 +49,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         UINavigationBar.appearance().scrollEdgeAppearance = appearance
         UINavigationBar.appearance().compactAppearance = appearance
         UINavigationBar.appearance().tintColor = UIColor(named: "NavBarTintColor")
-        
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-            let window = UIWindow(windowScene: windowScene)
-            let rootView = AlarmListSwiftUIView()
-            let hostingController = UIHostingController(rootView: rootView)
-            hostingController.view.tintColor = UIColor(named: "NavBarTintColor")
-            window.rootViewController = hostingController
-            self.window = window
-            window.makeKeyAndVisible()
-        }
-        
+
         return true
     }
 

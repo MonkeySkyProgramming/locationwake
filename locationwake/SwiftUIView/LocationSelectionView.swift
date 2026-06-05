@@ -13,7 +13,13 @@ struct LocationSelectionView: View {
         center: CLLocationCoordinate2D(latitude: 35.681236, longitude: 139.767125), // 日本中心
         span: MKCoordinateSpan(latitudeDelta: 5.0, longitudeDelta: 5.0)
     )
+    @State private var cameraPosition: MapCameraPosition = .region(MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 35.681236, longitude: 139.767125),
+        span: MKCoordinateSpan(latitudeDelta: 5.0, longitudeDelta: 5.0)
+    ))
     @State private var matchingItems: [IdentifiableMapItem] = []
+    @AppStorage("defaultRadius") private var defaultRadius: Double = 300.0
+    @AppStorage("isSoundEnabled") private var defaultSoundEnabled: Bool = true
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -26,19 +32,22 @@ struct LocationSelectionView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(Color("NavBarTintColor"))
-                    TextField("場所を検索", text: $searchText, onCommit: {
-                        performSearch(searchText: searchText)
-                    })
-                    .textFieldStyle(.roundedBorder)
+                    TextField("場所を検索", text: $searchText)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit {
+                            performSearch(searchText: searchText)
+                        }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 10)
                 .background(Color("NavBarColor"))
             }
 
-            Map(coordinateRegion: $region, annotationItems: matchingItems, annotationContent: { item in
-                MapMarker(coordinate: item.mapItem.placemark.coordinate)
-            })
+            Map(position: $cameraPosition) {
+                ForEach(matchingItems) { item in
+                    Marker(item.mapItem.name ?? "", coordinate: item.mapItem.placemark.coordinate)
+                }
+            }
             .frame(height: 350)
 
             if matchingItems.isEmpty {
@@ -54,15 +63,15 @@ struct LocationSelectionView: View {
                             alarm: Alarm(
                                 name: item.mapItem.name ?? "未命名",
                                 repeatWeekdays: [],
-                                sound: "未選択",
+                                sound: "modan",
                                 isAlarmEnabled: true,
-                                isSoundEnabled: true,
+                                isSoundEnabled: defaultSoundEnabled,
                                 isVibrationEnabled: true,
                                 location: Location(
                                     latitude: item.mapItem.placemark.coordinate.latitude,
                                     longitude: item.mapItem.placemark.coordinate.longitude
                                 ),
-                                radius: 3000
+                                radius: defaultRadius
                             )
                         )
                     ) {
@@ -83,6 +92,7 @@ struct LocationSelectionView: View {
     private func performSearch(searchText: String) {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = searchText
+        request.region = region
         let search = MKLocalSearch(request: request)
         search.start { response, error in
             guard let response = response else {
@@ -95,6 +105,7 @@ struct LocationSelectionView: View {
                     center: first.placemark.coordinate,
                     span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
                 )
+                cameraPosition = .region(region)
             }
         }
     }
