@@ -41,6 +41,17 @@ struct AlarmDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            AppNavigationHeader(title: "アラーム設定", showsBackButton: true, backAction: {
+                dismiss()
+            }) {
+                Button("保存") {
+                    saveCurrentAlarm()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(Color("NavBarTintColor"))
+            }
+
             Form {
                 Section(header: Text("アラーム名")) {
                     TextField("アラーム名を入力", text: $alarmName)
@@ -120,54 +131,50 @@ struct AlarmDetailView: View {
 
                 // Removed the "保存" button section from the bottom of the form
             }
-            .navigationTitle("アラーム設定")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("保存") {
-                        let newAlarm = Alarm(
-                            id: UUID().uuidString,
-                            name: alarmName,
-                            repeatWeekdays: Array(repeatWeekdays).sorted(),
-                            sound: selectedSound,
-                            isAlarmEnabled: true,
-                            isSoundEnabled: isSoundEnabled,
-                            isVibrationEnabled: isVibrationEnabled,
-                            location: Location(latitude: selectedCoordinate.latitude, longitude: selectedCoordinate.longitude),
-                            radius: radius
-                        )
-
-                        // Debug print
-                        print("🔍 保存するアラーム:")
-                        print("名前: \(newAlarm.name)")
-                        print("繰り返し: \(newAlarm.repeatWeekdays)")
-                        print("音: \(newAlarm.sound)")
-                        print("有効: \(newAlarm.isAlarmEnabled), 音有効: \(newAlarm.isSoundEnabled)")
-                        print("バイブレーション有効: \(newAlarm.isVibrationEnabled)")
-                        if let location = newAlarm.location {
-                            print("位置: 緯度 \(location.latitude), 経度 \(location.longitude)")
-                        } else {
-                            print("位置情報が設定されていません")
-                        }
-                        print("半径: \(newAlarm.radius)")
-
-                        let allAlarms = loadSavedAlarms()
-                        print("📦 現在保存されているアラーム一覧:")
-                        for (i, alarm) in allAlarms.enumerated() {
-                            print("🔔 [\(i)] \(alarm.name), 繰り返し: \(alarm.repeatWeekdays), 音: \(alarm.sound), 緯度: \(alarm.location?.latitude ?? 0), 経度: \(alarm.location?.longitude ?? 0), 半径: \(alarm.radius)")
-                        }
-
-                        let skipTimestampKey = "SkipTriggerAt_\(newAlarm.name)"
-                        UserDefaults.standard.set(Date(), forKey: skipTimestampKey)
-
-                        saveAlarmSetting(newAlarm)
-                        viewModel.loadAlarms()
-                        navigationModel.path = []
-                    }
-                    .foregroundColor(Color("NavBarTintColor"))
-                }
-            }
         }
         .padding(.bottom, 60) // Prevent overlap with AdBanner in root BaseContainerView
+        .navigationBarBackButtonHidden(true)
+    }
+
+    func saveCurrentAlarm() {
+        let newAlarm = Alarm(
+            id: UUID().uuidString,
+            name: alarmName,
+            repeatWeekdays: Array(repeatWeekdays).sorted(),
+            sound: selectedSound,
+            isAlarmEnabled: true,
+            isSoundEnabled: isSoundEnabled,
+            isVibrationEnabled: isVibrationEnabled,
+            location: Location(latitude: selectedCoordinate.latitude, longitude: selectedCoordinate.longitude),
+            radius: radius
+        )
+
+        // Debug print
+        print("🔍 保存するアラーム:")
+        print("名前: \(newAlarm.name)")
+        print("繰り返し: \(newAlarm.repeatWeekdays)")
+        print("音: \(newAlarm.sound)")
+        print("有効: \(newAlarm.isAlarmEnabled), 音有効: \(newAlarm.isSoundEnabled)")
+        print("バイブレーション有効: \(newAlarm.isVibrationEnabled)")
+        if let location = newAlarm.location {
+            print("位置: 緯度 \(location.latitude), 経度 \(location.longitude)")
+        } else {
+            print("位置情報が設定されていません")
+        }
+        print("半径: \(newAlarm.radius)")
+
+        let allAlarms = loadSavedAlarms()
+        print("📦 現在保存されているアラーム一覧:")
+        for (i, alarm) in allAlarms.enumerated() {
+            print("🔔 [\(i)] \(alarm.name), 繰り返し: \(alarm.repeatWeekdays), 音: \(alarm.sound), 緯度: \(alarm.location?.latitude ?? 0), 経度: \(alarm.location?.longitude ?? 0), 半径: \(alarm.radius)")
+        }
+
+        let skipTimestampKey = "SkipTriggerAt_\(newAlarm.name)"
+        UserDefaults.standard.set(Date(), forKey: skipTimestampKey)
+
+        saveAlarmSetting(newAlarm)
+        viewModel.loadAlarms()
+        navigationModel.path = []
     }
     
     func saveAlarmSetting(_ alarm: Alarm) {
@@ -225,65 +232,79 @@ struct SoundSelectionView: View {
     @Binding var selectedSound: String
     let sounds = ["kind", "modan", "siren"]
     @State private var audioPlayer: AVAudioPlayer?
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        List {
-            ForEach(sounds, id: \.self) { sound in
-                HStack {
-                    Text(sound)
-                    Spacer()
-                    if sound == selectedSound {
-                        Image(systemName: "checkmark")
+        VStack(spacing: 0) {
+            AppNavigationHeader(title: "サウンド選択", showsBackButton: true) {
+                dismiss()
+            }
+
+            List {
+                ForEach(sounds, id: \.self) { sound in
+                    HStack {
+                        Text(sound)
+                        Spacer()
+                        if sound == selectedSound {
+                            Image(systemName: "checkmark")
+                        }
                     }
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    selectedSound = sound
-                    if let url = Bundle.main.url(forResource: sound, withExtension: "mp3") {
-                        do {
-                            audioPlayer = try AVAudioPlayer(contentsOf: url)
-                            audioPlayer?.play()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                                audioPlayer?.stop()
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        selectedSound = sound
+                        if let url = Bundle.main.url(forResource: sound, withExtension: "mp3") {
+                            do {
+                                audioPlayer = try AVAudioPlayer(contentsOf: url)
+                                audioPlayer?.play()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                                    audioPlayer?.stop()
+                                }
+                            } catch {
+                                print("Error playing sound: \(error.localizedDescription)")
                             }
-                        } catch {
-                            print("Error playing sound: \(error.localizedDescription)")
                         }
                     }
                 }
             }
         }
-        .navigationTitle("サウンド選択")
+        .navigationBarBackButtonHidden(true)
     }
 }
 
 struct RepeatWeekdaySelectionView: View {
     @Binding var selectedWeekdays: Set<Int>
     let days = ["日", "月", "火", "水", "木", "金", "土"]
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        List {
-            ForEach(0..<days.count, id: \.self) { index in
-                HStack {
-                    Text(days[index])
-                    Spacer()
-                    if selectedWeekdays.contains(index) {
-                        Image(systemName: "checkmark")
+        VStack(spacing: 0) {
+            AppNavigationHeader(title: "繰り返し設定", showsBackButton: true) {
+                dismiss()
+            }
+
+            List {
+                ForEach(0..<days.count, id: \.self) { index in
+                    HStack {
+                        Text(days[index])
+                        Spacer()
+                        if selectedWeekdays.contains(index) {
+                            Image(systemName: "checkmark")
+                        }
                     }
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    if selectedWeekdays.contains(index) {
-                        selectedWeekdays.remove(index)
-                    } else {
-                        selectedWeekdays.insert(index)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if selectedWeekdays.contains(index) {
+                            selectedWeekdays.remove(index)
+                        } else {
+                            selectedWeekdays.insert(index)
+                        }
+                        print("タップした曜日: \(index)")
+                        print("現在の選択: \(selectedWeekdays.sorted())")
                     }
-                    print("タップした曜日: \(index)")
-                    print("現在の選択: \(selectedWeekdays.sorted())")
                 }
             }
         }
-        .navigationTitle("繰り返し設定")
+        .navigationBarBackButtonHidden(true)
     }
 }
 

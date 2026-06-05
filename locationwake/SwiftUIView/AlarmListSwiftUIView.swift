@@ -70,61 +70,54 @@ struct AlarmListSwiftUIView: View {
     var body: some View {
         BaseContainerView {
             NavigationStack(path: $navigationModel.path) {
-                List {
-                    ForEach(viewModel.alarms, id: \.id) { alarm in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(alarm.name)
-                                    .font(.headline)
-                                let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
-                                let repeatText = (alarm.repeatWeekdays?.isEmpty ?? true) ? "" : "（" + alarm.repeatWeekdays!.sorted().map { weekdays[$0] }.joined(separator: "・") + "）"
-                                let vibrationText = alarm.isVibrationEnabled ? "・バイブレーション" : ""
-                                let soundText = alarm.isSoundEnabled ? "・\(alarm.sound)" : ""
-                                Text((alarm.isAlarmEnabled ? "有効" : "無効") + soundText + vibrationText  + repeatText)
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
-                            }
-
-                            Spacer()
-
-                            Toggle("", isOn: Binding(
-                                get: { alarm.isAlarmEnabled },
-                                set: { newValue in
-                                    if let index = viewModel.alarms.firstIndex(where: { $0.id == alarm.id }) {
-                                        viewModel.alarms[index].isAlarmEnabled = newValue
-                                        viewModel.saveAlarms()
-                                    }
-                                }
-                            ))
-                            .labelsHidden()
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            if alarm.location != nil {
-                                navigationModel.path.append(.alarmDetail(alarm: alarm))
-                            }
-                        }
-                    }
-                    .onDelete(perform: viewModel.deleteAlarm)
-                }
-                .navigationTitle("アラーム一覧")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button(action: {
-                            navigationModel.path.append(.settings)
-                        }) {
-                            Image(systemName: "gear")
-                                .foregroundColor(Color("NavBarTintColor"))
-                        }
-                    }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: {
+                VStack(spacing: 0) {
+                    AppNavigationHeader(title: "アラーム一覧") {
+                        AppIconButton(systemName: "plus") {
                             navigationModel.path.append(.locationSelection)
-                        }) {
-                            Image(systemName: "plus")
-                                .foregroundColor(Color("NavBarTintColor"))
                         }
+                    }
+                    .overlay(alignment: .leading) {
+                        AppIconButton(systemName: "gear") {
+                            navigationModel.path.append(.settings)
+                        }
+                    }
+
+                    List {
+                        ForEach(viewModel.alarms, id: \.id) { alarm in
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(alarm.name)
+                                        .font(.headline)
+                                    let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
+                                    let repeatText = (alarm.repeatWeekdays?.isEmpty ?? true) ? "" : "（" + alarm.repeatWeekdays!.sorted().map { weekdays[$0] }.joined(separator: "・") + "）"
+                                    let vibrationText = alarm.isVibrationEnabled ? "・バイブレーション" : ""
+                                    let soundText = alarm.isSoundEnabled ? "・\(alarm.sound)" : ""
+                                    Text((alarm.isAlarmEnabled ? "有効" : "無効") + soundText + vibrationText  + repeatText)
+                                        .font(.subheadline)
+                                        .foregroundColor(.gray)
+                                }
+
+                                Spacer()
+
+                                Toggle("", isOn: Binding(
+                                    get: { alarm.isAlarmEnabled },
+                                    set: { newValue in
+                                        if let index = viewModel.alarms.firstIndex(where: { $0.id == alarm.id }) {
+                                            viewModel.alarms[index].isAlarmEnabled = newValue
+                                            viewModel.saveAlarms()
+                                        }
+                                    }
+                                ))
+                                .labelsHidden()
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if alarm.location != nil {
+                                    navigationModel.path.append(.alarmDetail(alarm: alarm))
+                                }
+                            }
+                        }
+                        .onDelete(perform: viewModel.deleteAlarm)
                     }
                 }
                 .navigationDestination(for: NavigationRoute.self) { route in
@@ -139,8 +132,7 @@ struct AlarmListSwiftUIView: View {
                     }
                 }
             }
-            .toolbarBackground(Color("NavBarColor"), for: .navigationBar)
-            .toolbar(.visible, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
             .environmentObject(viewModel)
             .environmentObject(navigationModel)
             .sheet(isPresented: $showHelp) {

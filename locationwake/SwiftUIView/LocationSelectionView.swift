@@ -14,9 +14,28 @@ struct LocationSelectionView: View {
         span: MKCoordinateSpan(latitudeDelta: 5.0, longitudeDelta: 5.0)
     )
     @State private var matchingItems: [IdentifiableMapItem] = []
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                AppNavigationHeader(title: "場所を選択", showsBackButton: true) {
+                    dismiss()
+                }
+
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(Color("NavBarTintColor"))
+                    TextField("場所を検索", text: $searchText, onCommit: {
+                        performSearch(searchText: searchText)
+                    })
+                    .textFieldStyle(.roundedBorder)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+                .background(Color("NavBarColor"))
+            }
+
             Map(coordinateRegion: $region, annotationItems: matchingItems, annotationContent: { item in
                 MapMarker(coordinate: item.mapItem.placemark.coordinate)
             })
@@ -57,22 +76,8 @@ struct LocationSelectionView: View {
                 }
             }
         }
-        .navigationTitle("場所を選択")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(Color("NavBarTintColor"))
-                    TextField("場所を検索", text: $searchText, onCommit: {
-                        performSearch(searchText: searchText)
-                    })
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 200)
-                }
-            }
-        }
         .background(Color.white.ignoresSafeArea())
+        .navigationBarBackButtonHidden(true)
     }
 
     private func performSearch(searchText: String) {
