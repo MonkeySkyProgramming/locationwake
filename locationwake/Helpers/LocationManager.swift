@@ -70,7 +70,6 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
     private var soundPlayer = SoundPlayer.shared
     private let alarmScheduler = AlarmScheduler()
-    private var isShowingAlwaysAlert = false
 
     func restoreSavedAlarms(reason: String) {
         alarms = AlarmStore.load()
@@ -276,12 +275,16 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didStartMonitoringFor region: CLRegion) {
+        UserDefaults.standard.removeObject(forKey: "MonitoringFailure_\(region.identifier)")
         let name = findAlarm(for: region.identifier)?.name ?? "不明"
         print("✅ event=monitoringStarted alarmID=\(region.identifier) name=\(name)")
     }
 
     func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
         let alarmID = region?.identifier ?? "unknown"
+        if alarmID != "unknown" {
+            UserDefaults.standard.set(error.localizedDescription, forKey: "MonitoringFailure_\(alarmID)")
+        }
         let name = findAlarm(for: alarmID)?.name ?? "不明"
         print("❌ event=monitoringFailed alarmID=\(alarmID) name=\(name) reason=\(error.localizedDescription)")
     }
@@ -467,75 +470,15 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             print("✅ locationManagerDidChangeAuthorization: 実際に「常に許可」が付与されました")
         case .authorizedWhenInUse:
             print("⚠️ locationManagerDidChangeAuthorization: 「使用中のみ許可」です → 「常に許可」が必要です。設定アプリで変更してください")
-            if !UserDefaults.standard.bool(forKey: "DidPromptForAlwaysPermission") {
-                UserDefaults.standard.set(true, forKey: "DidPromptForAlwaysPermission")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    self.promptUserToEnableLocationSettings()
-                }
-            }
             manager.requestAlwaysAuthorization()
         case .denied, .restricted:
             print("❌ locationManagerDidChangeAuthorization: 位置情報の使用が制限または拒否されています。設定アプリで確認してください")
-            promptUserToEnableLocationSettings()
         case .notDetermined:
             print("⏳ locationManagerDidChangeAuthorization: 位置情報の許可がまだ決定されていません")
-            promptUserToEnableLocationSettings()
         @unknown default:
             print("⚠️ locationManagerDidChangeAuthorization: 未知の認可ステータス")
         }
     }
-    private func shouldPromptForAlwaysAuthorization() -> Bool {
-        // 1) すでに「常に許可」なら出さない
-        let status = locationManager.authorizationStatus
-        if status == .authorizedAlways { return false }
-
-        // 2) アプリがフォアグラウンドでない時は出さない
-        if UIApplication.shared.applicationState != .active { return false }
-
-        // 3) すでにポップを表示中なら出さない
-        if isShowingAlwaysAlert { return false }
-
-        // 抑制間隔なし（常に評価する）
-        return true
-    }
-
-    private func promptUserToEnableLocationSettings() {
-        // ガード条件: 必要な時だけ表示
-        guard shouldPromptForAlwaysAuthorization() else { return }
-
-        // すでに何かを表示中なら重複表示しない
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootVC = windowScene.windows.first?.rootViewController,
-              rootVC.presentedViewController == nil else {
-            return
-        }
-
-        isShowingAlwaysAlert = true
-
-        let alert = UIAlertController(
-            title: "位置情報の許可が必要です",
-            message: "このアプリでは常に位置情報へのアクセスが必要です。設定画面から『常に許可』に変更してください。",
-            preferredStyle: .alert
-        )
-
-        let recordDismiss: () -> Void = {
-            self.isShowingAlwaysAlert = false
-            UserDefaults.standard.set(Date(), forKey: "LastAlwaysPromptAt")
-        }
-
-        alert.addAction(UIAlertAction(title: "設定へ", style: .default, handler: { _ in
-            if let appSettings = URL(string: UIApplication.openSettingsURLString) {
-                UIApplication.shared.open(appSettings)
-            }
-            recordDismiss()
-        }))
-        alert.addAction(UIAlertAction(title: "キャンセル", style: .cancel, handler: { _ in
-            recordDismiss()
-        }))
-
-        rootVC.present(alert, animated: true, completion: nil)
-    }
-
     // 追加: 定期的に認可ステータスをチェックするメソッド
     func startAuthorizationStatusCheck() {
         authorizationCheckTimer?.invalidate() // 既存のタイマーを停止
@@ -554,13 +497,10 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             print("🟢 位置情報は常に許可されています")
         case .authorizedWhenInUse:
             print("🟡 使用中のみ許可 → 常に許可が必要です")
-            promptUserToEnableLocationSettings()
         case .denied, .restricted:
             print("🔴 拒否・制限されています")
-            promptUserToEnableLocationSettings()
         case .notDetermined:
             print("⏳ まだ未決定です")
-            promptUserToEnableLocationSettings()
         @unknown default:
             print("⚠️ 未知の状態")
         }

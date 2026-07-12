@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreLocation
+import UserNotifications
 
 struct CoordinateWrapper: Hashable {
     let latitude: Double
@@ -60,6 +61,7 @@ class NavigationModel: ObservableObject {
 struct AlarmListSwiftUIView: View {
     @ObservedObject var viewModel = AlarmListViewModel()
     @State private var showHelp = false
+    @State private var hasSettingsIssue = false
     @AppStorage("hasSeenOnboarding") var hasSeenOnboarding: Bool = false
     @StateObject private var navigationModel = NavigationModel()
 
@@ -77,6 +79,19 @@ struct AlarmListSwiftUIView: View {
                     .overlay(alignment: .leading) {
                         AppIconButton(systemName: "gear") {
                             navigationModel.path.append(.settings)
+                        }
+                    }
+
+                    if hasSettingsIssue {
+                        Button {
+                            navigationModel.path.append(.settings)
+                        } label: {
+                            Label("到着通知に必要な設定を確認してください", systemImage: "exclamationmark.triangle.fill")
+                                .font(.footnote)
+                                .foregroundColor(.orange)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal)
+                                .padding(.vertical, 8)
                         }
                     }
 
@@ -143,6 +158,7 @@ struct AlarmListSwiftUIView: View {
             }
             .onAppear {
                 viewModel.loadAlarms()
+                refreshSettingsIssue()
                 print("🔁 アラームリスト再読み込み onAppear")
 
                 print("🧭 startMonitoringに渡すアラーム: \(viewModel.alarms.map { "\($0.name): \($0.isAlarmEnabled)" })")
@@ -160,6 +176,9 @@ struct AlarmListSwiftUIView: View {
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowHelpOverlay"))) { _ in
                 showHelp = true
             }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                refreshSettingsIssue()
+            }
             .onChange(of: navigationModel.path) { _, newPath in
                 if newPath.isEmpty {
                     print("他の画面から戻ったため再読み込み")
@@ -168,6 +187,22 @@ struct AlarmListSwiftUIView: View {
                         LocationManager.shared.startMonitoring(alarms: viewModel.alarms)
                     }
                 }
+            }
+        }
+    }
+
+    private func refreshSettingsIssue() {
+        let locationNeedsAttention = CLLocationManager().authorizationStatus != .authorizedAlways
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            let notificationIsAllowed: Bool
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                notificationIsAllowed = true
+            default:
+                notificationIsAllowed = false
+            }
+            DispatchQueue.main.async {
+                hasSettingsIssue = locationNeedsAttention || !notificationIsAllowed
             }
         }
     }

@@ -16,6 +16,7 @@ struct AlarmDetailView: View {
     @State private var cameraPosition: MapCameraPosition
     @State private var isVibrationEnabled: Bool = true
     @State private var isAlarmLimitAlertPresented = false
+    @State private var monitoringFailure: String?
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var navigationModel: NavigationModel
     @EnvironmentObject var viewModel: AlarmListViewModel
@@ -108,6 +109,15 @@ struct AlarmDetailView: View {
                         .foregroundColor(.secondary)
                 }
 
+                if let monitoringFailure {
+                    Section(header: Text("到着通知を確認してください")) {
+                        Text("このアラームの監視を開始できませんでした。")
+                        Text(monitoringFailure)
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
                 Section(header: Text("アラーム音")) {
                     Toggle("音を鳴らす", isOn: $isSoundEnabled)
                     NavigationLink(destination: SoundSelectionView(selectedSound: $selectedSound)) {
@@ -143,6 +153,9 @@ struct AlarmDetailView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text("アラームは最大\(Alarm.maximumSavedAlarms)件まで登録できます。不要なアラームを削除してください。")
+        }
+        .onAppear {
+            monitoringFailure = UserDefaults.standard.string(forKey: "MonitoringFailure_\(alarmID)")
         }
         .navigationBarBackButtonHidden(true)
     }
