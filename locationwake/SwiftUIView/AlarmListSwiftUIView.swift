@@ -70,11 +70,13 @@ struct AlarmListSwiftUIView: View {
             NavigationStack(path: $navigationModel.path) {
                 VStack(spacing: 0) {
                     AppNavigationHeader(title: "アラーム一覧") {
-                        if viewModel.canAddAlarm {
-                            AppIconButton(systemName: "plus") {
+                        AppIconButton(systemName: "plus") {
+                            if viewModel.canAddAlarm {
                                 navigationModel.path.append(.locationSelection)
                             }
                         }
+                        .disabled(!viewModel.canAddAlarm)
+                        .opacity(viewModel.canAddAlarm ? 1 : 0.35)
                     }
                     .overlay(alignment: .leading) {
                         AppIconButton(systemName: "gear") {
@@ -95,12 +97,27 @@ struct AlarmListSwiftUIView: View {
                         }
                     }
 
-                    List {
-                        if !viewModel.canAddAlarm {
-                            Text("アラームは最大\(Alarm.maximumSavedAlarms)件まで登録できます。不要なアラームを削除してください。")
-                                .font(.footnote)
+                    if !viewModel.canAddAlarm {
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .foregroundColor(.orange)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("アラームを追加できません")
+                                    .font(.subheadline.weight(.semibold))
+                                Text("最大\(Alarm.maximumSavedAlarms)件に達しています。追加するには、不要なアラームを削除してください。")
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer(minLength: 0)
+                            Text("\(viewModel.alarms.count)/\(Alarm.maximumSavedAlarms)")
+                                .font(.footnote.monospacedDigit())
                                 .foregroundColor(.secondary)
                         }
+                        .padding(12)
+                        .background(Color.orange.opacity(0.12))
+                    }
+
+                    List {
                         ForEach(viewModel.alarms, id: \.id) { alarm in
                             HStack {
                                 VStack(alignment: .leading) {
