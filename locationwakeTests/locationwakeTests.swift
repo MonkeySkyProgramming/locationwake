@@ -179,6 +179,49 @@ final class locationwakeTests: XCTestCase {
         XCTAssertEqual(tooLarge.radius, Alarm.maximumGeofenceRadius)
     }
 
+    func testAlarmStoreMigratesLegacyDataAndTriggerState() throws {
+        let suiteName = "AlarmStoreTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let legacyJSON = """
+        [{
+          "name": "Osaka Station",
+          "sound": "modan",
+          "isAlarmEnabled": true,
+          "isSoundEnabled": true,
+          "location": { "latitude": 34.702485, "longitude": 135.495951 },
+          "radius": 300
+        }]
+        """.data(using: .utf8)!
+        defaults.set(legacyJSON, forKey: AlarmStore.savedAlarmsKey)
+        defaults.set(true, forKey: "SkipTrigger_Osaka Station")
+        defaults.set(Date(), forKey: "SkipTriggerAt_Osaka Station")
+
+        let alarms = AlarmStore.load(from: defaults)
+        let alarm = try XCTUnwrap(alarms.first)
+
+        XCTAssertFalse(alarm.id.isEmpty)
+        XCTAssertTrue(defaults.bool(forKey: "SkipTrigger_\(alarm.id)"))
+        XCTAssertNotNil(defaults.object(forKey: "SkipTriggerAt_\(alarm.id)"))
+        XCTAssertNil(defaults.object(forKey: "SkipTrigger_Osaka Station"))
+        XCTAssertNil(defaults.object(forKey: "SkipTriggerAt_Osaka Station"))
+
+        let persisted = try XCTUnwrap(defaults.data(forKey: AlarmStore.savedAlarmsKey))
+        XCTAssertTrue(String(decoding: persisted, as: UTF8.self).contains("\"id\""))
+    }
+
+    func testAlarmNormalizationRegeneratesDuplicateIdentifiers() {
+        let alarms = [
+            Alarm(id: "duplicate", name: "A", sound: "kind", isAlarmEnabled: true, isSoundEnabled: true, isVibrationEnabled: false),
+            Alarm(id: "duplicate", name: "B", sound: "kind", isAlarmEnabled: true, isSoundEnabled: true, isVibrationEnabled: false)
+        ]
+
+        let normalized = Alarm.normalizedForPersistence(alarms)
+        XCTAssertEqual(normalized[0].id, "duplicate")
+        XCTAssertNotEqual(normalized[0].id, normalized[1].id)
+    }
+
     func testAlarmSchedulerBuildsArrivalNotificationRequest() throws {
         let alarm = Alarm(
             id: "arrival",

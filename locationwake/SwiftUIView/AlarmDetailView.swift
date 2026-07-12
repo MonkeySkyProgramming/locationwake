@@ -15,6 +15,7 @@ struct AlarmDetailView: View {
     @State private var repeatWeekdays: Set<Int> = []
     @State private var cameraPosition: MapCameraPosition
     @State private var isVibrationEnabled: Bool = true
+    @State private var isAlarmLimitAlertPresented = false
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var navigationModel: NavigationModel
     @EnvironmentObject var viewModel: AlarmListViewModel
@@ -138,6 +139,11 @@ struct AlarmDetailView: View {
             }
         }
         .padding(.bottom, 60) // Prevent overlap with AdBanner in root BaseContainerView
+        .alert("アラームを追加できません", isPresented: $isAlarmLimitAlertPresented) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("アラームは最大\(Alarm.maximumSavedAlarms)件まで登録できます。不要なアラームを削除してください。")
+        }
         .navigationBarBackButtonHidden(true)
     }
 
@@ -177,13 +183,20 @@ struct AlarmDetailView: View {
         let skipTimestampKey = "SkipTriggerAt_\(newAlarm.id)"
         UserDefaults.standard.set(Date(), forKey: skipTimestampKey)
 
-        saveAlarmSetting(newAlarm)
+        guard saveAlarmSetting(newAlarm) else {
+            isAlarmLimitAlertPresented = true
+            return
+        }
         viewModel.loadAlarms()
         navigationModel.path = []
     }
     
-    func saveAlarmSetting(_ alarm: Alarm) {
+    func saveAlarmSetting(_ alarm: Alarm) -> Bool {
         var savedAlarms = loadSavedAlarms()
+        let isExistingAlarm = savedAlarms.contains(where: { $0.id == alarm.id })
+        guard isExistingAlarm || savedAlarms.count < Alarm.maximumSavedAlarms else {
+            return false
+        }
         // Insert geofence check and update hasTriggeredUntilExit before saving
         let manager: CLLocationManager = LocationManager.shared.locationManager
         if let userLocation = manager.location?.coordinate {
@@ -217,19 +230,12 @@ struct AlarmDetailView: View {
                 savedAlarms.append(newAlarm)
             }
         }
-        savedAlarms = Alarm.normalizedForPersistence(savedAlarms)
-        if let encoded = try? JSONEncoder().encode(savedAlarms) {
-            UserDefaults.standard.set(encoded, forKey: "SavedAlarms")
-        }
-        return
+        AlarmStore.save(savedAlarms)
+        return true
     }
 
     func loadSavedAlarms() -> [Alarm] {
-        if let savedData = UserDefaults.standard.data(forKey: "SavedAlarms"),
-           let decoded = try? JSONDecoder().decode([Alarm].self, from: savedData) {
-            return decoded
-        }
-        return []
+        AlarmStore.load()
     }
 }
 

@@ -72,6 +72,12 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     private let alarmScheduler = AlarmScheduler()
     private var isShowingAlwaysAlert = false
 
+    func restoreSavedAlarms(reason: String) {
+        alarms = AlarmStore.load()
+        print("ℹ️ event=alarmsRestored reason=\(reason) count=\(alarms.count)")
+        startMonitoring(alarms: alarms)
+    }
+
     override init() {
         locationManager = CLLocationManager()
         super.init()
@@ -365,14 +371,8 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     // アラームを保存するメソッド
     func saveAlarms() {
         alarms = Alarm.normalizedForPersistence(alarms)
-        let encoder = JSONEncoder()
-        do {
-            let encoded = try encoder.encode(alarms)
-            UserDefaults.standard.set(encoded, forKey: "SavedAlarms")
-            print("アラームが正常に保存されました。")
-        } catch {
-            print("アラームの保存に失敗しました: \(error)")
-        }
+        AlarmStore.save(alarms)
+        print("アラームが正常に保存されました。")
     }
 
     // アラームを削除したときの監視停止処理

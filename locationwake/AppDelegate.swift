@@ -31,6 +31,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                     print("ATT ステータス: \(status.rawValue)")
                 }
             }
+
+            LocationManager.shared.restoreSavedAlarms(reason: "launch")
         }
         
         let appearance = UINavigationBarAppearance()
@@ -59,7 +61,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationWillEnterForeground(_ application: UIApplication) {}
 
-    func applicationDidBecomeActive(_ application: UIApplication) {}
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        guard !AppRuntime.shouldSuppressExternalSideEffects else { return }
+        LocationManager.shared.restoreSavedAlarms(reason: "becameActive")
+    }
 
     func applicationWillTerminate(_ application: UIApplication) {}
 }

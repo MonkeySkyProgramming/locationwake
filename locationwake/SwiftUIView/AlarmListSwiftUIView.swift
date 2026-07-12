@@ -68,8 +68,10 @@ struct AlarmListSwiftUIView: View {
             NavigationStack(path: $navigationModel.path) {
                 VStack(spacing: 0) {
                     AppNavigationHeader(title: "アラーム一覧") {
-                        AppIconButton(systemName: "plus") {
-                            navigationModel.path.append(.locationSelection)
+                        if viewModel.canAddAlarm {
+                            AppIconButton(systemName: "plus") {
+                                navigationModel.path.append(.locationSelection)
+                            }
                         }
                     }
                     .overlay(alignment: .leading) {
@@ -79,6 +81,11 @@ struct AlarmListSwiftUIView: View {
                     }
 
                     List {
+                        if !viewModel.canAddAlarm {
+                            Text("アラームは最大\(Alarm.maximumSavedAlarms)件まで登録できます。不要なアラームを削除してください。")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                        }
                         ForEach(viewModel.alarms, id: \.id) { alarm in
                             HStack {
                                 VStack(alignment: .leading) {
@@ -174,16 +181,15 @@ class AlarmListViewModel: ObservableObject {
         NotificationCenter.default.addObserver(self, selector: #selector(handleAlarmUpdated), name: Notification.Name("AlarmUpdated"), object: nil)
     }
 
+    var canAddAlarm: Bool {
+        alarms.count < Alarm.maximumSavedAlarms
+    }
+
     func loadAlarms() {
-        if let savedAlarms = UserDefaults.standard.object(forKey: "SavedAlarms") as? Data {
-            let decoder = JSONDecoder()
-            if let loadedAlarms = try? decoder.decode([Alarm].self, from: savedAlarms) {
-                self.alarms = Alarm.normalizedForPersistence(loadedAlarms)
-                if let normalizedData = try? JSONEncoder().encode(self.alarms), normalizedData != savedAlarms {
-                    UserDefaults.standard.set(normalizedData, forKey: "SavedAlarms")
-                }
-                print("✅ 読み込み成功: \(alarms.map { $0.name })")
-            }
+        let loadedAlarms = AlarmStore.load()
+        if !loadedAlarms.isEmpty {
+            self.alarms = loadedAlarms
+            print("✅ 読み込み成功: \(alarms.map { $0.name })")
         }
         // データが読み込めなかった・空だった場合はサンプルアラームを追加
         if self.alarms.isEmpty {
@@ -207,11 +213,9 @@ class AlarmListViewModel: ObservableObject {
     }
 
     func saveAlarms() {
-        let encoder = JSONEncoder()
-        if let encoded = try? encoder.encode(alarms) {
-            UserDefaults.standard.set(encoded, forKey: "SavedAlarms")
-            print("💾 アラーム保存: \(alarms.map { $0.name })")
-        }
+        alarms = Alarm.normalizedForPersistence(alarms)
+        AlarmStore.save(alarms)
+        print("💾 アラーム保存: \(alarms.map { $0.name })")
         if !AppRuntime.shouldSuppressExternalSideEffects {
             LocationManager.shared.startMonitoring(alarms: alarms)
         }

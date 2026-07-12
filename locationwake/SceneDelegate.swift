@@ -14,9 +14,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.rootViewController = UIHostingController(rootView: AlarmListSwiftUIView())
         self.window = window
         window.makeKeyAndVisible()
-        if !AppRuntime.shouldSuppressExternalSideEffects {
-            _ = LocationManager.shared
-        }
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {}

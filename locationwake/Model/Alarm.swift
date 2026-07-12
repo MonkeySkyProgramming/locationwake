@@ -9,6 +9,7 @@ struct Alarm: Codable, Identifiable, Equatable {
     static let minimumGeofenceRadius = 100.0
     static let maximumGeofenceRadius = 1_000.0
     static let defaultGeofenceRadius = 300.0
+    static let maximumSavedAlarms = 20
 
     var id: String = UUID().uuidString
     var name: String
@@ -34,11 +35,13 @@ struct Alarm: Codable, Identifiable, Equatable {
     }
 
     static func normalizedForPersistence(_ alarms: [Alarm]) -> [Alarm] {
-        alarms.map { alarm in
+        var usedIDs = Set<String>()
+        return alarms.map { alarm in
             var normalized = alarm
-            if normalized.id.isEmpty {
+            if normalized.id.isEmpty || usedIDs.contains(normalized.id) {
                 normalized.id = UUID().uuidString
             }
+            usedIDs.insert(normalized.id)
             normalized.radius = normalizedRadius(normalized.radius)
             return normalized
         }
@@ -91,4 +94,50 @@ struct Alarm: Codable, Identifiable, Equatable {
     }
 
     // default initializer remains available
+}
+
+enum AlarmStore {
+    static let savedAlarmsKey = "SavedAlarms"
+
+    static func load(from defaults: UserDefaults = .standard) -> [Alarm] {
+        guard let data = defaults.data(forKey: savedAlarmsKey),
+              let decoded = try? JSONDecoder().decode([Alarm].self, from: data) else {
+            return []
+        }
+
+        let alarms = Alarm.normalizedForPersistence(decoded)
+        migrateLegacyTriggerState(for: alarms, defaults: defaults)
+        if let normalizedData = try? JSONEncoder().encode(alarms), normalizedData != data {
+            defaults.set(normalizedData, forKey: savedAlarmsKey)
+        }
+        return alarms
+    }
+
+    static func save(_ alarms: [Alarm], to defaults: UserDefaults = .standard) {
+        let normalized = Alarm.normalizedForPersistence(alarms)
+        if let data = try? JSONEncoder().encode(normalized) {
+            defaults.set(data, forKey: savedAlarmsKey)
+        }
+    }
+
+    private static func migrateLegacyTriggerState(for alarms: [Alarm], defaults: UserDefaults) {
+        let nameCounts = Dictionary(grouping: alarms, by: \.name).mapValues(\.count)
+        for alarm in alarms {
+            let legacySkipKey = "SkipTrigger_\(alarm.name)"
+            let legacyTimestampKey = "SkipTriggerAt_\(alarm.name)"
+
+            if nameCounts[alarm.name] == 1 {
+                if defaults.bool(forKey: legacySkipKey) {
+                    defaults.set(true, forKey: "SkipTrigger_\(alarm.id)")
+                }
+                if let timestamp = defaults.object(forKey: legacyTimestampKey) as? Date,
+                   Date().timeIntervalSince(timestamp) < AlarmTriggerPolicy.saveSkipInterval {
+                    defaults.set(timestamp, forKey: "SkipTriggerAt_\(alarm.id)")
+                }
+            }
+
+            defaults.removeObject(forKey: legacySkipKey)
+            defaults.removeObject(forKey: legacyTimestampKey)
+        }
+    }
 }
