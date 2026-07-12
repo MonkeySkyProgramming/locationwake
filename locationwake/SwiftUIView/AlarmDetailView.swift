@@ -206,13 +206,13 @@ struct AlarmDetailView: View {
 
     private var monitoringMethodDescription: String {
         guard let geofenceMaximum = LocationManager.shared.maximumGeofenceRadius else {
-            return "この端末では位置情報更新で到着を判定します。"
+            return "この設定では現在地を確認して到着をお知らせするため、電池の減りが早くなることがあります。"
         }
         let roundedMaximum = Int(geofenceMaximum)
         if radius <= geofenceMaximum {
-            return "この端末では\(roundedMaximum)m以下をジオフェンスで監視します。"
+            return "この半径では、電池への負担を抑えて到着をお知らせします。"
         }
-        return "この端末では\(roundedMaximum)mを超えるため、位置情報更新で到着を判定します。"
+        return "この端末では\(roundedMaximum)mを超える設定のため、電池の減りが早くなることがあります。"
     }
     
     func saveAlarmSetting(_ alarm: Alarm) -> Bool {
