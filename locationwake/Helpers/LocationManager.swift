@@ -71,6 +71,15 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     private var soundPlayer = SoundPlayer.shared
     private let alarmScheduler = AlarmScheduler()
 
+    var maximumGeofenceRadius: Double? {
+        guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
+            return nil
+        }
+        let maximumDistance = locationManager.maximumRegionMonitoringDistance
+        guard maximumDistance > 0 else { return nil }
+        return min(maximumDistance, Alarm.maximumGeofenceRadius)
+    }
+
     func restoreSavedAlarms(reason: String) {
         alarms = AlarmStore.load()
         print("ℹ️ event=alarmsRestored reason=\(reason) count=\(alarms.count)")
@@ -149,12 +158,14 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
                     UserDefaults.standard.set(false, forKey: "SkipTrigger_\(alarm.id)") // Reset flag
                     continue
                 }
-                guard let region = geofenceRegion(for: alarm) else { continue }
+                guard let location = alarm.location, let radius = alarm.geofenceRadius else { continue }
                 if alarm.hasTriggered {
                     print("⏹️ トリガー済みアラームをスキップ: \(alarm.name)")
                     continue
                 }
-                if region.contains(currentLocation) {
+                let destination = CLLocation(latitude: location.latitude, longitude: location.longitude)
+                let current = CLLocation(latitude: currentLocation.latitude, longitude: currentLocation.longitude)
+                if current.distance(from: destination) <= radius {
                     print("🚨 現在地は \(alarm.name) のジオフェンス内 → 即時トリガー")
                     triggerAlarm(for: alarm)
                 }
@@ -170,7 +181,9 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     }
 
     private func geofenceRegion(for alarm: Alarm) -> CLCircularRegion? {
-        guard let location = alarm.location, let radius = alarm.geofenceRadius else {
+        guard usesGeofence(for: alarm),
+              let location = alarm.location,
+              let radius = alarm.geofenceRadius else {
             return nil
         }
 
@@ -184,13 +197,24 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         return region
     }
 
+    private func usesGeofence(for alarm: Alarm) -> Bool {
+        guard let radius = alarm.geofenceRadius, let maximumGeofenceRadius else {
+            return false
+        }
+        return radius <= maximumGeofenceRadius
+    }
+
+    private func geofenceAlarms(from alarms: [Alarm]) -> [Alarm] {
+        Self.geofenceEligibleAlarms(from: alarms).filter(usesGeofence)
+    }
+
     private func synchronizeGeofences() {
         guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
             print("❌ event=monitoringUnavailable reason=CLCircularRegion is not supported")
             return
         }
 
-        let desiredAlarms = Self.geofenceEligibleAlarms(from: alarms)
+        let desiredAlarms = geofenceAlarms(from: alarms)
         let desiredByID = Dictionary(uniqueKeysWithValues: desiredAlarms.map { ($0.id, $0) })
         let currentRegions = locationManager.monitoredRegions
         var unchangedIDs = Set<String>()
@@ -410,13 +434,32 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
                 continue
             }
 
-            // 追加: hasTriggeredUntilExit チェック
+            // 長距離方式では、位置更新で範囲外への退出を検出して再発火可能に戻す。
+            if !usesGeofence(for: alarm),
+               alarm.hasTriggeredUntilExit,
+               let destination = alarm.location,
+               let radius = alarm.geofenceRadius {
+                let current = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+                let target = CLLocation(latitude: destination.latitude, longitude: destination.longitude)
+                if current.distance(from: target) > radius,
+                   let index = alarms.firstIndex(where: { $0.id == alarm.id }) {
+                    alarms[index].hasTriggered = false
+                    alarms[index].hasTriggeredUntilExit = false
+                    saveAlarms()
+                    print("ℹ️ event=longDistanceAlarmReset alarmID=\(alarm.id)")
+                }
+                continue
+            }
+
+            // 発火後、ジオフェンス方式は退出イベントまで再発火しない。
             if alarm.hasTriggeredUntilExit {
                 print("🚫 \(alarm.name) は hasTriggeredUntilExit = true のためスキップ")
                 continue
             }
 
-            guard let loc = alarm.location, let region = geofenceRegion(for: alarm) else { continue }
+            guard !usesGeofence(for: alarm),
+                  let loc = alarm.location,
+                  let radius = alarm.geofenceRadius else { continue }
             let userLoc = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
             let alarmLoc = CLLocation(latitude: loc.latitude, longitude: loc.longitude)
             let distance = userLoc.distance(from: alarmLoc)
@@ -430,7 +473,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
                 }
             }
 
-            if region.contains(location.coordinate), !alarm.hasTriggered {
+            if distance <= radius, !alarm.hasTriggered {
                 // 保存直後スキップ条件（メモリ）
                 if skipAlarmIDs.contains(alarm.id) {
                     print("🚫 didUpdateLocation: \(alarm.name) はメモリ上でスキップ")

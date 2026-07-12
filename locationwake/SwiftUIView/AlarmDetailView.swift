@@ -104,7 +104,7 @@ struct AlarmDetailView: View {
                 Section(header: Text("半径")) {
                     Slider(value: $radius, in: Alarm.minimumGeofenceRadius...Alarm.maximumGeofenceRadius, step: 100)
                     Text("\(Int(radius)) メートル")
-                    Text("iOSの到着通知で設定できる半径は最大1,000 mです。")
+                    Text(monitoringMethodDescription)
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 }
@@ -202,6 +202,17 @@ struct AlarmDetailView: View {
         }
         viewModel.loadAlarms()
         navigationModel.path = []
+    }
+
+    private var monitoringMethodDescription: String {
+        guard let geofenceMaximum = LocationManager.shared.maximumGeofenceRadius else {
+            return "この端末では位置情報更新で到着を判定します。"
+        }
+        let roundedMaximum = Int(geofenceMaximum)
+        if radius <= geofenceMaximum {
+            return "この端末では\(roundedMaximum)m以下をジオフェンスで監視します。"
+        }
+        return "この端末では\(roundedMaximum)mを超えるため、位置情報更新で到着を判定します。"
     }
     
     func saveAlarmSetting(_ alarm: Alarm) -> Bool {

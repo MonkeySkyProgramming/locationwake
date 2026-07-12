@@ -7,7 +7,7 @@ struct Location: Codable, Equatable {
 
 struct Alarm: Codable, Identifiable, Equatable {
     static let minimumGeofenceRadius = 100.0
-    static let maximumGeofenceRadius = 1_000.0
+    static let maximumGeofenceRadius = 10_000.0
     static let defaultGeofenceRadius = 300.0
     static let maximumSavedAlarms = 20
 

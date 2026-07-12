@@ -172,7 +172,7 @@ final class locationwakeTests: XCTestCase {
             isAlarmEnabled: true,
             isSoundEnabled: true,
             isVibrationEnabled: false,
-            radius: 3_000
+            radius: 30_000
         )
 
         XCTAssertEqual(tooSmall.radius, Alarm.minimumGeofenceRadius)
