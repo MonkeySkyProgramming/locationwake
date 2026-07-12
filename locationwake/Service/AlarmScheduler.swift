@@ -3,7 +3,7 @@ import UserNotifications
 
 class AlarmScheduler {
     static func notificationIdentifier(for alarm: Alarm) -> String {
-        alarm.id.isEmpty ? alarm.name : alarm.id
+        alarm.id
     }
 
     static func makeNotificationRequest(for alarm: Alarm) -> UNNotificationRequest {

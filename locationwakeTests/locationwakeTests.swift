@@ -140,7 +140,7 @@ final class locationwakeTests: XCTestCase {
         XCTAssertEqual(AlarmScheduler.notificationIdentifier(for: alarm), "alarm-id")
     }
 
-    func testAlarmSchedulerFallsBackToNameWhenIdIsEmpty() {
+    func testAlarmInitialiserGeneratesIdentifierWhenGivenAnEmptyId() {
         let alarm = Alarm(
             id: "",
             name: "Station",
@@ -150,7 +150,33 @@ final class locationwakeTests: XCTestCase {
             isVibrationEnabled: false
         )
 
-        XCTAssertEqual(AlarmScheduler.notificationIdentifier(for: alarm), "Station")
+        XCTAssertFalse(alarm.id.isEmpty)
+        XCTAssertNotEqual(alarm.id, alarm.name)
+        XCTAssertEqual(AlarmScheduler.notificationIdentifier(for: alarm), alarm.id)
+    }
+
+    func testAlarmNormalizesGeofenceRadiusForPersistence() {
+        let tooSmall = Alarm(
+            id: "small",
+            name: "Small",
+            sound: "kind",
+            isAlarmEnabled: true,
+            isSoundEnabled: true,
+            isVibrationEnabled: false,
+            radius: 20
+        )
+        let tooLarge = Alarm(
+            id: "large",
+            name: "Large",
+            sound: "kind",
+            isAlarmEnabled: true,
+            isSoundEnabled: true,
+            isVibrationEnabled: false,
+            radius: 3_000
+        )
+
+        XCTAssertEqual(tooSmall.radius, Alarm.minimumGeofenceRadius)
+        XCTAssertEqual(tooLarge.radius, Alarm.maximumGeofenceRadius)
     }
 
     func testAlarmSchedulerBuildsArrivalNotificationRequest() throws {

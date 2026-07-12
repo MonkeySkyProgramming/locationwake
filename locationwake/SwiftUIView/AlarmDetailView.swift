@@ -9,7 +9,7 @@ struct AlarmDetailView: View {
 
     @State private var alarmName: String = ""
     @State private var selectedCoordinate: CLLocationCoordinate2D
-    @State private var radius: Double = 3000
+    @State private var radius: Double = Alarm.defaultGeofenceRadius
     @State private var isSoundEnabled: Bool = true
     @State private var selectedSound: String = "未選択"
     @State private var repeatWeekdays: Set<Int> = []
@@ -29,15 +29,16 @@ struct AlarmDetailView: View {
         self.placeName = alarm.name
         _selectedCoordinate = State(initialValue: coordinate)
         _alarmName = State(initialValue: alarm.name)
-        _radius = State(initialValue: alarm.radius ?? 3000)
+        let geofenceRadius = alarm.geofenceRadius ?? Alarm.defaultGeofenceRadius
+        _radius = State(initialValue: geofenceRadius)
         _isSoundEnabled = State(initialValue: alarm.isSoundEnabled)
         _selectedSound = State(initialValue: alarm.sound)
         _repeatWeekdays = State(initialValue: Set(alarm.repeatWeekdays ?? []))
         _cameraPosition = State(initialValue: .region(MKCoordinateRegion(
             center: coordinate,
             span: MKCoordinateSpan(
-                latitudeDelta: (alarm.radius ?? 3000) / 80000,
-                longitudeDelta: (alarm.radius ?? 3000) / 80000))))
+                latitudeDelta: geofenceRadius / 80000,
+                longitudeDelta: geofenceRadius / 80000))))
         _isVibrationEnabled = State(initialValue: alarm.isVibrationEnabled)
     }
 
@@ -99,8 +100,11 @@ struct AlarmDetailView: View {
                 }
 
                 Section(header: Text("半径")) {
-                    Slider(value: $radius, in: 100...10000, step: 100)
+                    Slider(value: $radius, in: Alarm.minimumGeofenceRadius...Alarm.maximumGeofenceRadius, step: 100)
                     Text("\(Int(radius)) メートル")
+                    Text("iOSの到着通知で設定できる半径は最大1,000 mです。")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
                 }
 
                 Section(header: Text("アラーム音")) {
@@ -147,7 +151,7 @@ struct AlarmDetailView: View {
             isSoundEnabled: isSoundEnabled,
             isVibrationEnabled: isVibrationEnabled,
             location: Location(latitude: selectedCoordinate.latitude, longitude: selectedCoordinate.longitude),
-            radius: radius
+            radius: Alarm.normalizedRadius(radius)
         )
 
         // Debug print
@@ -170,7 +174,7 @@ struct AlarmDetailView: View {
             print("🔔 [\(i)] \(alarm.name), 繰り返し: \(alarm.repeatWeekdays ?? []), 音: \(alarm.sound), 緯度: \(alarm.location?.latitude ?? 0), 経度: \(alarm.location?.longitude ?? 0), 半径: \(alarm.radius ?? 0)")
         }
 
-        let skipTimestampKey = "SkipTriggerAt_\(newAlarm.name)"
+        let skipTimestampKey = "SkipTriggerAt_\(newAlarm.id)"
         UserDefaults.standard.set(Date(), forKey: skipTimestampKey)
 
         saveAlarmSetting(newAlarm)
@@ -186,7 +190,7 @@ struct AlarmDetailView: View {
             let center = CLLocation(latitude: alarm.location?.latitude ?? 0, longitude: alarm.location?.longitude ?? 0)
             let current = CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude)
             let distance = current.distance(from: center)
-            let isInside = distance <= (alarm.radius ?? 300.0)
+            let isInside = distance <= (alarm.geofenceRadius ?? Alarm.defaultGeofenceRadius)
             var updatedAlarm = alarm
             if updatedAlarm.id.isEmpty {
                 updatedAlarm.id = UUID().uuidString
@@ -213,6 +217,7 @@ struct AlarmDetailView: View {
                 savedAlarms.append(newAlarm)
             }
         }
+        savedAlarms = Alarm.normalizedForPersistence(savedAlarms)
         if let encoded = try? JSONEncoder().encode(savedAlarms) {
             UserDefaults.standard.set(encoded, forKey: "SavedAlarms")
         }

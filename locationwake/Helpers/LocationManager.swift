@@ -65,7 +65,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
     var alarms: [Alarm] = [] // アラームリスト
 
-    var skipNames: Set<String> = []
+    var skipAlarmIDs: Set<String> = []
 
     private var soundPlayer = SoundPlayer.shared
     private let alarmScheduler = AlarmScheduler()
@@ -138,21 +138,16 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         self.alarms = alarms // アラームを保持
         if let currentLocation = locationManager.location?.coordinate, !skipImmediateCheck {
             for alarm in Self.geofenceEligibleAlarms(from: alarms) {
-                if UserDefaults.standard.bool(forKey: "SkipTrigger_\(alarm.name)") {
+                if UserDefaults.standard.bool(forKey: "SkipTrigger_\(alarm.id)") {
                     print("🚫 \(alarm.name) は保存直後のため startMonitoring でトリガーをスキップ")
-                    UserDefaults.standard.set(false, forKey: "SkipTrigger_\(alarm.name)") // Reset flag
+                    UserDefaults.standard.set(false, forKey: "SkipTrigger_\(alarm.id)") // Reset flag
                     continue
                 }
-                guard let location = alarm.location, let radius = alarm.radius else { continue }
+                guard let region = geofenceRegion(for: alarm) else { continue }
                 if alarm.hasTriggered {
                     print("⏹️ トリガー済みアラームをスキップ: \(alarm.name)")
                     continue
                 }
-                let region = CLCircularRegion(
-                    center: CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude),
-                    radius: min(radius, 1000.0),
-                    identifier: alarm.name
-                )
                 if region.contains(currentLocation) {
                     print("🚨 現在地は \(alarm.name) のジオフェンス内 → 即時トリガー")
                     triggerAlarm(for: alarm)
@@ -207,33 +202,39 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     // 新しいジオフェンスを追加
     static func geofenceEligibleAlarms(from alarms: [Alarm]) -> [Alarm] {
         alarms.filter { alarm in
-            alarm.isAlarmEnabled && alarm.location != nil && alarm.radius != nil
+            alarm.isAlarmEnabled && alarm.location != nil && alarm.geofenceRadius != nil
         }
+    }
+
+    private func geofenceRegion(for alarm: Alarm) -> CLCircularRegion? {
+        guard let location = alarm.location, let radius = alarm.geofenceRadius else {
+            return nil
+        }
+
+        let region = CLCircularRegion(
+            center: CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude),
+            radius: radius,
+            identifier: alarm.id
+        )
+        region.notifyOnEntry = true
+        region.notifyOnExit = true
+        return region
     }
 
     func addGeofences(for alarms: [Alarm]) {
         for alarm in Self.geofenceEligibleAlarms(from: alarms) {
 
             print("⚙️ addGeofence 対象: \(alarm.name), 緯度: \(alarm.location?.latitude ?? 0), 半径: \(alarm.radius ?? 0), 有効: \(alarm.isAlarmEnabled)")
-            guard let location = alarm.location, let radius = alarm.radius else {
+            guard let region = geofenceRegion(for: alarm) else {
                 print("アラーム \(alarm.name) の位置情報または半径が無効です")
                 print("⛔ スキップされたアラーム: \(alarm.name)")
                 continue
             }
             // すでに監視中の場合はスキップ
-            if self.locationManager.monitoredRegions.contains(where: { $0.identifier == alarm.name }) {
+            if self.locationManager.monitoredRegions.contains(where: { $0.identifier == alarm.id }) {
                 print("すでに監視中の領域があります: \(alarm.name)")
                 continue
             }
-            
-            // 監視対象の領域を作成
-            let region = CLCircularRegion(
-                center: CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude),
-                radius: min(radius, 1000.0), // 半径を1000m以下に制限
-                identifier: alarm.name
-            )
-            region.notifyOnEntry = true
-            region.notifyOnExit = true // Exit通知も有効にする
             
             if CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) {
                 self.locationManager.startMonitoring(for: region)
@@ -269,7 +270,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         print("Geofence領域から出ました: \(region.identifier)")
         
         // 対象のアラームを検索し、トリガー済みフラグをリセットする
-        if let index = alarms.firstIndex(where: { $0.name == region.identifier }) {
+        if let index = alarms.firstIndex(where: { $0.id == region.identifier }) {
             // アラームの再トリガー状態をリセット（再入室時に再度アラームを発火させるためのフラグ）
             alarms[index].hasTriggered = false
             alarms[index].hasTriggeredUntilExit = false
@@ -283,27 +284,27 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
     // アラーム名で該当するアラームを検索する関数
     private func findAlarm(for identifier: String) -> Alarm? {
-        return alarms.first { $0.name == identifier }
+        return alarms.first { $0.id == identifier }
     }
 
     // アラームをトリガーする処理（サウンド名を使用）
     private func triggerAlarm(for alarm: Alarm) {
-        let skipKey = "SkipTrigger_\(alarm.name)"
-        let skipTimestampKey = "SkipTriggerAt_\(alarm.name)"
+        let skipKey = "SkipTrigger_\(alarm.id)"
+        let skipTimestampKey = "SkipTriggerAt_\(alarm.id)"
         let savedDate = UserDefaults.standard.object(forKey: skipTimestampKey) as? Date
         let today = AlarmTriggerPolicy.weekdayIndex(for: Date())
 
         if let blockReason = AlarmTriggerPolicy.blockReason(
             for: alarm,
             weekday: today,
-            hasMemorySkip: skipNames.contains(alarm.name),
+            hasMemorySkip: skipAlarmIDs.contains(alarm.id),
             hasStoredSkipFlag: UserDefaults.standard.bool(forKey: skipKey),
             savedAt: savedDate
         ) {
             switch blockReason {
             case .memorySkip:
                 print("🚫 \(alarm.name) は保存直後（メモリ）でトリガーをスキップ")
-                skipNames.remove(alarm.name)
+                skipAlarmIDs.remove(alarm.id)
             case .storedSkipFlag:
                 print("🚫 \(alarm.name) は保存直後のためトリガーをスキップ（フラグによる）")
                 UserDefaults.standard.set(false, forKey: skipKey)
@@ -340,7 +341,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         }
 
         // アラームが作動したので isAlarmEnabled をオフにする
-        if let index = alarms.firstIndex(where: { $0.name == alarm.name }) {
+        if let index = alarms.firstIndex(where: { $0.id == alarm.id }) {
             // 繰り返し曜日が未設定または空の場合のみ isAlarmEnabled をオフにする
             if alarms[index].repeatWeekdays?.isEmpty ?? true {
                 alarms[index].isAlarmEnabled = false
@@ -365,6 +366,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
     // アラームを保存するメソッド
     func saveAlarms() {
+        alarms = Alarm.normalizedForPersistence(alarms)
         let encoder = JSONEncoder()
         do {
             let encoded = try encoder.encode(alarms)
@@ -378,7 +380,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     // アラームを削除したときの監視停止処理
     func stopMonitoringForAlarm(alarm: Alarm) {
         for region in locationManager.monitoredRegions {
-            if region.identifier == alarm.name {
+            if region.identifier == alarm.id {
                 locationManager.stopMonitoring(for: region)
                 print("アラームの監視を停止しました: \(alarm.name)")
             }
@@ -413,17 +415,12 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
                 continue
             }
 
-            guard let loc = alarm.location, let radius = alarm.radius else { continue }
+            guard let loc = alarm.location, let region = geofenceRegion(for: alarm) else { continue }
             let userLoc = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
             let alarmLoc = CLLocation(latitude: loc.latitude, longitude: loc.longitude)
             let distance = userLoc.distance(from: alarmLoc)
             print("📏 \(alarm.name) までの距離: \(Int(distance)) m")
-            let region = CLCircularRegion(
-                center: CLLocationCoordinate2D(latitude: loc.latitude, longitude: loc.longitude),
-                radius: min(radius, 1000.0),
-                identifier: alarm.name
-            )
-            let skipTimestampKey = "SkipTriggerAt_\(alarm.name)"
+            let skipTimestampKey = "SkipTriggerAt_\(alarm.id)"
             if let savedDate = UserDefaults.standard.object(forKey: skipTimestampKey) as? Date {
                 let interval = Date().timeIntervalSince(savedDate)
                 if interval < 10 {
@@ -434,14 +431,14 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
             if region.contains(location.coordinate), !alarm.hasTriggered {
                 // 保存直後スキップ条件（メモリ）
-                if skipNames.contains(alarm.name) {
+                if skipAlarmIDs.contains(alarm.id) {
                     print("🚫 didUpdateLocation: \(alarm.name) はメモリ上でスキップ")
-                    skipNames.remove(alarm.name)
+                    skipAlarmIDs.remove(alarm.id)
                     continue
                 }
 
                 // 保存直後スキップ条件（UserDefaultsフラグ）
-                let skipKey = "SkipTrigger_\(alarm.name)"
+                let skipKey = "SkipTrigger_\(alarm.id)"
                 if UserDefaults.standard.bool(forKey: skipKey) {
                     print("🚫 didUpdateLocation: \(alarm.name) は UserDefaults フラグでスキップ")
                     UserDefaults.standard.set(false, forKey: skipKey)
@@ -449,7 +446,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
                 }
 
                 // 保存直後スキップ条件（UserDefaultsタイムスタンプ）
-                let skipTimestampKey = "SkipTriggerAt_\(alarm.name)"
+                let skipTimestampKey = "SkipTriggerAt_\(alarm.id)"
                 if let savedDate = UserDefaults.standard.object(forKey: skipTimestampKey) as? Date {
                     let interval = Date().timeIntervalSince(savedDate)
                     if interval < 10 {

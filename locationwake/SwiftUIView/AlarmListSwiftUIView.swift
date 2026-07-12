@@ -178,7 +178,10 @@ class AlarmListViewModel: ObservableObject {
         if let savedAlarms = UserDefaults.standard.object(forKey: "SavedAlarms") as? Data {
             let decoder = JSONDecoder()
             if let loadedAlarms = try? decoder.decode([Alarm].self, from: savedAlarms) {
-                self.alarms = loadedAlarms
+                self.alarms = Alarm.normalizedForPersistence(loadedAlarms)
+                if let normalizedData = try? JSONEncoder().encode(self.alarms), normalizedData != savedAlarms {
+                    UserDefaults.standard.set(normalizedData, forKey: "SavedAlarms")
+                }
                 print("✅ 読み込み成功: \(alarms.map { $0.name })")
             }
         }

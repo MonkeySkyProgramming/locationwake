@@ -18,7 +18,7 @@ struct LocationSelectionView: View {
         span: MKCoordinateSpan(latitudeDelta: 5.0, longitudeDelta: 5.0)
     ))
     @State private var matchingItems: [IdentifiableMapItem] = []
-    @AppStorage("defaultRadius") private var defaultRadius: Double = 300.0
+    @AppStorage("defaultRadius") private var defaultRadius: Double = Alarm.defaultGeofenceRadius
     @AppStorage("isSoundEnabled") private var defaultSoundEnabled: Bool = true
     @Environment(\.dismiss) private var dismiss
 
@@ -71,7 +71,7 @@ struct LocationSelectionView: View {
                                     latitude: item.mapItem.placemark.coordinate.latitude,
                                     longitude: item.mapItem.placemark.coordinate.longitude
                                 ),
-                                radius: defaultRadius
+                                radius: Alarm.normalizedRadius(defaultRadius) ?? Alarm.defaultGeofenceRadius
                             )
                         )
                     ) {

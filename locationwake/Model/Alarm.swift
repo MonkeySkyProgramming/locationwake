@@ -1,11 +1,15 @@
 import Foundation
 
-struct Location: Codable {
+struct Location: Codable, Equatable {
     var latitude: Double
     var longitude: Double
 }
 
-struct Alarm: Codable, Identifiable {
+struct Alarm: Codable, Identifiable, Equatable {
+    static let minimumGeofenceRadius = 100.0
+    static let maximumGeofenceRadius = 1_000.0
+    static let defaultGeofenceRadius = 300.0
+
     var id: String = UUID().uuidString
     var name: String
     var repeatWeekdays: [Int]? // 0:日曜〜6:土曜、繰り返し曜日
@@ -20,13 +24,34 @@ struct Alarm: Codable, Identifiable {
     var hasTriggered: Bool = false
     var hasTriggeredUntilExit: Bool = false // 領域から出るまでトリガー禁止
 
+    static func normalizedRadius(_ radius: Double?) -> Double? {
+        guard let radius else { return nil }
+        return min(max(radius, minimumGeofenceRadius), maximumGeofenceRadius)
+    }
+
+    var geofenceRadius: Double? {
+        Self.normalizedRadius(radius)
+    }
+
+    static func normalizedForPersistence(_ alarms: [Alarm]) -> [Alarm] {
+        alarms.map { alarm in
+            var normalized = alarm
+            if normalized.id.isEmpty {
+                normalized.id = UUID().uuidString
+            }
+            normalized.radius = normalizedRadius(normalized.radius)
+            return normalized
+        }
+    }
+
     enum CodingKeys: String, CodingKey {
         case id, name, repeatWeekdays, sound, isAlarmEnabled, isSoundEnabled, isVibrationEnabled, location, radius, hasTriggered, hasTriggeredUntilExit
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = (try? container.decode(String.self, forKey: .id)) ?? UUID().uuidString
+        let decodedID = (try? container.decode(String.self, forKey: .id)) ?? ""
+        id = decodedID.isEmpty ? UUID().uuidString : decodedID
         name = try container.decode(String.self, forKey: .name)
         repeatWeekdays = try container.decodeIfPresent([Int].self, forKey: .repeatWeekdays)
         sound = try container.decode(String.self, forKey: .sound)
@@ -52,7 +77,7 @@ struct Alarm: Codable, Identifiable {
         hasTriggered: Bool = false,
         hasTriggeredUntilExit: Bool = false
     ) {
-        self.id = id
+        self.id = id.isEmpty ? UUID().uuidString : id
         self.name = name
         self.repeatWeekdays = repeatWeekdays
         self.sound = sound
@@ -60,7 +85,7 @@ struct Alarm: Codable, Identifiable {
         self.isSoundEnabled = isSoundEnabled
         self.isVibrationEnabled = isVibrationEnabled
         self.location = location
-        self.radius = radius
+        self.radius = Self.normalizedRadius(radius)
         self.hasTriggered = hasTriggered
         self.hasTriggeredUntilExit = hasTriggeredUntilExit
     }

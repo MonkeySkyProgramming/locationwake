@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SettingView: View {
-    @AppStorage("defaultRadius") private var defaultRadius: Double = 300.0
+    @AppStorage("defaultRadius") private var defaultRadius: Double = Alarm.defaultGeofenceRadius
     @AppStorage("isSoundEnabled") private var isSoundEnabled: Bool = true
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding: Bool = true
     @Environment(\.dismiss) private var dismiss
@@ -21,7 +21,7 @@ struct SettingView: View {
                         Spacer()
                         Text("\(Int(defaultRadius)) m")
                     }
-                    Slider(value: $defaultRadius, in: 100...1000, step: 50)
+                    Slider(value: $defaultRadius, in: Alarm.minimumGeofenceRadius...Alarm.maximumGeofenceRadius, step: 50)
                 }
 
                 Section(header: Text("ヘルプ")) {
@@ -69,6 +69,9 @@ struct SettingView: View {
             if newValue == false {
                 NotificationCenter.default.post(name: NSNotification.Name("ShowHelpOverlay"), object: nil)
             }
+        }
+        .onAppear {
+            defaultRadius = Alarm.normalizedRadius(defaultRadius) ?? Alarm.defaultGeofenceRadius
         }
         .navigationBarBackButtonHidden(true)
     }
