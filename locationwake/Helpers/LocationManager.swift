@@ -56,6 +56,7 @@ struct AlarmTriggerPolicy {
 
 class LocationManager: NSObject, CLLocationManagerDelegate {
     static let shared = LocationManager()
+    static let maximumMonitoredGeofences = 20
     weak var delegate: LocationManagerDelegate? // デリゲートプロパティ
 
     public var locationManager: CLLocationManager
@@ -133,11 +134,11 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         }
     }
 
-    // Geofenceの監視を開始する
+    // 保存済みアラームと監視領域を同期する。変更のない領域は停止しない。
     func startMonitoring(alarms: [Alarm], skipImmediateCheck: Bool = false) {
-        self.alarms = alarms // アラームを保持
+        self.alarms = Alarm.normalizedForPersistence(alarms)
         if let currentLocation = locationManager.location?.coordinate, !skipImmediateCheck {
-            for alarm in Self.geofenceEligibleAlarms(from: alarms) {
+            for alarm in Self.geofenceEligibleAlarms(from: self.alarms) {
                 if UserDefaults.standard.bool(forKey: "SkipTrigger_\(alarm.id)") {
                     print("🚫 \(alarm.name) は保存直後のため startMonitoring でトリガーをスキップ")
                     UserDefaults.standard.set(false, forKey: "SkipTrigger_\(alarm.id)") // Reset flag
@@ -154,52 +155,9 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
                 }
             }
         }
-        print("受け取ったアラームリスト: \(alarms.map { $0.name })")
-        print("現在の監視領域(開始前): \(locationManager.monitoredRegions.map { $0.identifier })")
-
-        // 既存の監視領域をすべて停止
-        for region in locationManager.monitoredRegions {
-            // 追加: dummy region の削除
-            if region.identifier == "BackgroundTrigger" {
-                locationManager.stopMonitoring(for: region)
-                print("🧹 仮ジオフェンスを削除しました")
-            } else {
-                locationManager.stopMonitoring(for: region)
-                print("監視を停止しました: \(region.identifier)")
-            }
-        }
-
-        // 全領域クリア後、新しい監視を追加
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            self.ensureMonitoringCleared { [weak self] isCleared in
-                guard let self = self else { return }
-                if isCleared {
-                    print("すべての監視領域がクリアされました。")
-                    self.addGeofences(for: alarms)
-                } else {
-                    print("監視領域がまだクリアされていません: \(self.locationManager.monitoredRegions.map { $0.identifier })")
-                }
-            }
-        }
+        synchronizeGeofences()
     }
 
-    // 監視領域が完全にクリアされることを確認
-    func ensureMonitoringCleared(completion: @escaping (Bool) -> Void) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            if self.locationManager.monitoredRegions.isEmpty {
-                completion(true)
-            } else {
-                // 残っている監視を再クリア
-                for region in self.locationManager.monitoredRegions {
-                    self.locationManager.stopMonitoring(for: region)
-                    print("追加で監視を停止しました: \(region.identifier)")
-                }
-                self.ensureMonitoringCleared(completion: completion)
-            }
-        }
-    }
-
-    // 新しいジオフェンスを追加
     static func geofenceEligibleAlarms(from alarms: [Alarm]) -> [Alarm] {
         alarms.filter { alarm in
             alarm.isAlarmEnabled && alarm.location != nil && alarm.geofenceRadius != nil
@@ -221,28 +179,57 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         return region
     }
 
-    func addGeofences(for alarms: [Alarm]) {
-        for alarm in Self.geofenceEligibleAlarms(from: alarms) {
-
-            print("⚙️ addGeofence 対象: \(alarm.name), 緯度: \(alarm.location?.latitude ?? 0), 半径: \(alarm.radius ?? 0), 有効: \(alarm.isAlarmEnabled)")
-            guard let region = geofenceRegion(for: alarm) else {
-                print("アラーム \(alarm.name) の位置情報または半径が無効です")
-                print("⛔ スキップされたアラーム: \(alarm.name)")
-                continue
-            }
-            // すでに監視中の場合はスキップ
-            if self.locationManager.monitoredRegions.contains(where: { $0.identifier == alarm.id }) {
-                print("すでに監視中の領域があります: \(alarm.name)")
-                continue
-            }
-            
-            if CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) {
-                self.locationManager.startMonitoring(for: region)
-                print("監視を開始したアラーム: \(alarm.name)")
-            } else {
-                print("CLCircularRegionの監視がサポートされていません")
-            }
+    private func synchronizeGeofences() {
+        guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
+            print("❌ event=monitoringUnavailable reason=CLCircularRegion is not supported")
+            return
         }
+
+        let desiredAlarms = Self.geofenceEligibleAlarms(from: alarms)
+        let desiredByID = Dictionary(uniqueKeysWithValues: desiredAlarms.map { ($0.id, $0) })
+        let currentRegions = locationManager.monitoredRegions
+        var unchangedIDs = Set<String>()
+        var regionsToStop = [CLRegion]()
+
+        for region in currentRegions {
+            guard let alarm = desiredByID[region.identifier],
+                  let expectedRegion = geofenceRegion(for: alarm),
+                  sameConfiguration(region, expectedRegion) else {
+                regionsToStop.append(region)
+                continue
+            }
+            unchangedIDs.insert(alarm.id)
+        }
+
+        for region in regionsToStop {
+            locationManager.stopMonitoring(for: region)
+            print("ℹ️ event=monitoringStopped alarmID=\(region.identifier) reason=removedOrChanged")
+        }
+
+        let alarmsToStart = desiredAlarms.filter { !unchangedIDs.contains($0.id) }
+        let remainingCapacity = max(0, Self.maximumMonitoredGeofences - (currentRegions.count - regionsToStop.count))
+        let alarmsWithinCapacity = Array(alarmsToStart.prefix(remainingCapacity))
+        let excludedAlarms = alarmsToStart.dropFirst(remainingCapacity)
+
+        if !excludedAlarms.isEmpty {
+            print("⚠️ event=monitoringLimitReached limit=\(Self.maximumMonitoredGeofences) excludedAlarmIDs=\(excludedAlarms.map(\.id))")
+        }
+
+        for alarm in alarmsWithinCapacity {
+            guard let region = geofenceRegion(for: alarm) else { continue }
+            locationManager.startMonitoring(for: region)
+            print("ℹ️ event=monitoringStartRequested alarmID=\(alarm.id) name=\(alarm.name)")
+        }
+    }
+
+    private func sameConfiguration(_ currentRegion: CLRegion, _ expectedRegion: CLCircularRegion) -> Bool {
+        guard let currentRegion = currentRegion as? CLCircularRegion else { return false }
+        return currentRegion.identifier == expectedRegion.identifier
+            && abs(currentRegion.center.latitude - expectedRegion.center.latitude) < 0.000_001
+            && abs(currentRegion.center.longitude - expectedRegion.center.longitude) < 0.000_001
+            && abs(currentRegion.radius - expectedRegion.radius) < 0.5
+            && currentRegion.notifyOnEntry == expectedRegion.notifyOnEntry
+            && currentRegion.notifyOnExit == expectedRegion.notifyOnExit
     }
 
     // 監視中のジオフェンス領域を定期的に表示するメソッド
@@ -282,7 +269,18 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         }
     }
 
-    // アラーム名で該当するアラームを検索する関数
+    func locationManager(_ manager: CLLocationManager, didStartMonitoringFor region: CLRegion) {
+        let name = findAlarm(for: region.identifier)?.name ?? "不明"
+        print("✅ event=monitoringStarted alarmID=\(region.identifier) name=\(name)")
+    }
+
+    func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
+        let alarmID = region?.identifier ?? "unknown"
+        let name = findAlarm(for: alarmID)?.name ?? "不明"
+        print("❌ event=monitoringFailed alarmID=\(alarmID) name=\(name) reason=\(error.localizedDescription)")
+    }
+
+    // ジオフェンスIDで該当するアラームを検索する関数
     private func findAlarm(for identifier: String) -> Alarm? {
         return alarms.first { $0.id == identifier }
     }
