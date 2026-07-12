@@ -104,9 +104,11 @@ struct AlarmDetailView: View {
                 Section(header: Text("半径")) {
                     Slider(value: $radius, in: Alarm.minimumGeofenceRadius...Alarm.maximumGeofenceRadius, step: 100)
                     Text("\(Int(radius)) メートル")
-                    Text(monitoringMethodDescription)
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
+                    if let monitoringMethodDescription {
+                        Text(monitoringMethodDescription)
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
                 }
 
                 if let monitoringFailure {
@@ -204,13 +206,13 @@ struct AlarmDetailView: View {
         navigationModel.path = []
     }
 
-    private var monitoringMethodDescription: String {
+    private var monitoringMethodDescription: String? {
         guard let geofenceMaximum = LocationManager.shared.maximumGeofenceRadius else {
             return "この設定では現在地を確認して到着をお知らせするため、電池の減りが早くなることがあります。"
         }
         let roundedMaximum = Int(geofenceMaximum)
         if radius <= geofenceMaximum {
-            return "この半径では、電池への負担を抑えて到着をお知らせします。"
+            return nil
         }
         return "この端末では\(roundedMaximum)mを超える設定のため、電池の減りが早くなることがあります。"
     }
