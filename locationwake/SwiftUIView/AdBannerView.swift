@@ -19,13 +19,11 @@ struct AdBannerView: UIViewControllerRepresentable {
     // MARK: - Hosting Controller
     final class BannerHostingController: UIViewController, BannerViewDelegate {
         private var bannerView: BannerView?
-        private let bottomBar = UIView()
         private var didSetupOnce = false
         private var lastSafeWidth: CGFloat = 0
 
         override func viewDidLoad() {
             super.viewDidLoad()
-            setupBottomBar()
         }
 
         override func viewDidAppear(_ animated: Bool) {
@@ -49,20 +47,6 @@ struct AdBannerView: UIViewControllerRepresentable {
             refreshBannerIfWidthChanged()
         }
 
-        // MARK: - UI
-        private func setupBottomBar() {
-            bottomBar.translatesAutoresizingMaskIntoConstraints = false
-            bottomBar.backgroundColor = UIColor(named: "NavBarColor")
-            view.addSubview(bottomBar)
-
-            NSLayoutConstraint.activate([
-                bottomBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-                bottomBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-                bottomBar.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-                bottomBar.heightAnchor.constraint(equalToConstant: 10) // 下の余白（デザインに合わせて調整）
-            ])
-        }
-
         private func setupBannerIfNeeded() {
             guard bannerView == nil else { return }
 
@@ -75,7 +59,7 @@ struct AdBannerView: UIViewControllerRepresentable {
 
             view.addSubview(banner)
             NSLayoutConstraint.activate([
-                banner.bottomAnchor.constraint(equalTo: bottomBar.topAnchor),
+                banner.bottomAnchor.constraint(equalTo: view.bottomAnchor),
                 banner.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
                 banner.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
             ])

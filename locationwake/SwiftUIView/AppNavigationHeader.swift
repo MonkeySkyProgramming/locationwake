@@ -35,6 +35,9 @@ struct AppNavigationHeader<Trailing: View>: View {
         }
         .frame(height: 44)
         .background(Color("NavBarColor"))
+        // AppNavigationHeader is the app's opaque navigation chrome.
+        // Keep NavigationStack's system bar out of the layout on every destination.
+        .toolbar(.hidden, for: .navigationBar)
     }
 
     private var trailingLeadingPlaceholder: some View {

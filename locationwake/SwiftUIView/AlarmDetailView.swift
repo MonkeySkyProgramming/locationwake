@@ -150,7 +150,6 @@ struct AlarmDetailView: View {
                 // Removed the "保存" button section from the bottom of the form
             }
         }
-        .padding(.bottom, 60) // Prevent overlap with AdBanner in root BaseContainerView
         .alert("アラームを追加できません", isPresented: $isAlarmLimitAlertPresented) {
             Button("OK", role: .cancel) {}
         } message: {

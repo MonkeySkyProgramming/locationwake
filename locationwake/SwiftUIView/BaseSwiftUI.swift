@@ -9,49 +9,40 @@ struct BaseContainerView<Content: View>: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            Color("NavBarColor").edgesIgnoringSafeArea(.all)
-            GeometryReader { geometry in
+        content
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
-                    content
-                        .frame(height: geometry.size.height - 60)
-                    Spacer(minLength: 0)
+                    Color("NavBarColor")
+                        .frame(height: 1) // Top margin above ad
+
+                    AdBannerView()
+                        .frame(height: 50)
+                        .background(Color("NavBarColor"))
+
+                    Rectangle()
+                        .fill(Color("NavBarColor"))
+                        .frame(height: 10)
                 }
+                .frame(maxWidth: .infinity)
             }
-
-            VStack(spacing: 0) {
-                Color("NavBarColor")
-                    .frame(height: 1) // Top margin above ad
-                    .edgesIgnoringSafeArea(.horizontal)
-
-                AdBannerView()
-                    .frame(height: 50)
-                    .background(Color("NavBarColor"))
-
-                Rectangle()
-                    .fill(Color("NavBarColor"))
-                    .frame(height: 10)
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .ignoresSafeArea(edges: .bottom)
-        .overlay(alignment: .bottomTrailing) {
-            Button(action: {
-                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let window = windowScene.windows.first {
-                    let onboardingView = UIHostingController(rootView: OnboardingView())
-                    onboardingView.modalPresentationStyle = .pageSheet
-                    window.rootViewController?.present(onboardingView, animated: true, completion: nil)
+            .background(Color.white)
+            .overlay(alignment: .bottomTrailing) {
+                Button(action: {
+                    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                       let window = windowScene.windows.first {
+                        let onboardingView = UIHostingController(rootView: OnboardingView())
+                        onboardingView.modalPresentationStyle = .pageSheet
+                        window.rootViewController?.present(onboardingView, animated: true, completion: nil)
+                    }
+                }) {
+                    Image(systemName: "questionmark.circle")
+                        .resizable()
+                        .frame(width: 32, height: 32)
+                        .foregroundColor(.primary)
                 }
-            }) {
-                Image(systemName: "questionmark.circle")
-                    .resizable()
-                    .frame(width: 32, height: 32)
-                    .foregroundColor(.primary)
+                .allowsHitTesting(true)
+                .padding(.bottom, 76)
+                .padding(.trailing)
             }
-            .allowsHitTesting(true)
-            .padding(.bottom, 90)
-            .padding(.trailing)
-        }
     }
 }
