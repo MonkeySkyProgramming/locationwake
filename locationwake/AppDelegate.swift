@@ -4,6 +4,7 @@ import UIKit
 import CoreLocation
 import GoogleMobileAds   // Google Mobile Ads SDK をインポート
 import SwiftUI
+import UserNotifications
 
 enum AppRuntime {
     static var isUITesting: Bool {
@@ -20,9 +21,11 @@ enum AppRuntime {
 }
 
 @main
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+
         if !AppRuntime.shouldSuppressExternalSideEffects {
             MobileAds.shared.start { _ in }
 
@@ -53,6 +56,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         UINavigationBar.appearance().tintColor = UIColor(named: "NavBarTintColor")
 
         return true
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        // アラーム音は SoundPlayer が再生するため、フォアグラウンドでは
+        // 通知の重複音を鳴らさず、バナーと通知センターへの表示だけを行う。
+        completionHandler([.banner, .list])
     }
 
     func applicationWillResignActive(_ application: UIApplication) {}

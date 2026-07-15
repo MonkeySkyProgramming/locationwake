@@ -12,16 +12,8 @@ enum HapticType {
 }
 
 struct HapticManager {
-    private static var activeTimers: [Timer] = []
+    private static var activeTimer: Timer?
 
-    private static func addTimer(_ timer: Timer) {
-        activeTimers.append(timer)
-    }
-
-    private static func invalidateAllTimers() {
-        activeTimers.forEach { $0.invalidate() }
-        activeTimers.removeAll()
-    }
     static func trigger(_ type: HapticType) {
         switch type {
         case .impactLight:
@@ -54,23 +46,30 @@ struct HapticManager {
     }
 
     static func triggerRepeated(_ type: HapticType, count: Int, interval: TimeInterval) {
+        stop()
         let safeCount = min(max(count, 0), 300)
+        guard safeCount > 0 else { return }
         var remaining = safeCount
-        var currentInterval = interval
+        var currentInterval = max(interval, 0.2)
+
         func scheduleNext() {
-            guard remaining > 0 else { return }
-            let timer = Timer.scheduledTimer(withTimeInterval: currentInterval, repeats: false) { _ in
+            guard remaining > 0 else {
+                activeTimer = nil
+                return
+            }
+            activeTimer = Timer.scheduledTimer(withTimeInterval: currentInterval, repeats: false) { _ in
+                activeTimer = nil
                 trigger(type)
                 remaining -= 1
                 currentInterval = max(0.2, currentInterval * 0.8)
                 scheduleNext()
             }
-            addTimer(timer)
         }
         scheduleNext()
     }
 
     static func stop() {
-        invalidateAllTimers()
+        activeTimer?.invalidate()
+        activeTimer = nil
     }
 }

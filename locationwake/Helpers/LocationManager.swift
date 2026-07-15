@@ -84,7 +84,6 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
     public var locationManager: CLLocationManager
     private var monitoringTimer: Timer?
-    private var vibrationTimer: Timer?
     private var authorizationCheckTimer: Timer?
     private var hasRestoredSavedAlarms = false
 
