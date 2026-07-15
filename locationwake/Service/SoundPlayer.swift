@@ -1,6 +1,6 @@
 import AVFoundation
 
-class SoundPlayer {
+final class SoundPlayer: NSObject, AVAudioPlayerDelegate {
     // シングルトンインスタンスの定義
     static let shared = SoundPlayer()
     
@@ -8,27 +8,36 @@ class SoundPlayer {
     private var stopTimer: Timer?
     
     // プライベートイニシャライザで外部からのインスタンス化を防ぐ
-    private init() {}
+    private override init() {
+        super.init()
+    }
     
     func playSound(named soundName: String) {
-        do {
-            // 他のアプリやシステムと音声の競合を防ぐための設定
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers, .duckOthers])
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch let error {
-            print("AVAudioSessionのアクティベーションエラー: \(error.localizedDescription)")
+        guard let url = Bundle.main.url(forResource: soundName, withExtension: "mp3") else {
+            print("サウンドファイルが見つかりません: \(soundName)")
+            deactivateAudioSession()
+            return
         }
 
-        // サウンドの再生
-        if let url = Bundle.main.url(forResource: soundName, withExtension: "mp3") {
-            do {
-                player = try AVAudioPlayer(contentsOf: url)
-                player?.play()
-            } catch {
-                print("サウンド再生エラー: \(error)")
+        do {
+            player?.stop()
+
+            // 長時間のアラームでは他アプリの音声を一時停止し、停止後に再開可能であることを通知する。
+            // duckOthers は短時間利用向けのため、ループ再生するアラームでは使用しない。
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+            let newPlayer = try AVAudioPlayer(contentsOf: url)
+            newPlayer.delegate = self
+            newPlayer.numberOfLoops = -1
+            newPlayer.prepareToPlay()
+            guard newPlayer.play() else {
+                throw SoundPlayerError.playbackDidNotStart
             }
-        } else {
-            print("サウンドファイルが見つかりません: \(soundName)")
+            player = newPlayer
+        } catch {
+            player = nil
+            deactivateAudioSession()
+            print("サウンド再生エラー: \(error.localizedDescription)")
         }
     }
     
@@ -61,6 +70,27 @@ class SoundPlayer {
             try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         } catch {
             print("AVAudioSessionの非アクティブ化に失敗しました: \(error.localizedDescription)")
+        }
+    }
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        self.player = nil
+        deactivateAudioSession()
+    }
+
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        self.player = nil
+        deactivateAudioSession()
+        if let error {
+            print("サウンドのデコード中にエラーが発生しました: \(error.localizedDescription)")
+        }
+    }
+
+    private enum SoundPlayerError: LocalizedError {
+        case playbackDidNotStart
+
+        var errorDescription: String? {
+            "音声再生を開始できませんでした"
         }
     }
 }

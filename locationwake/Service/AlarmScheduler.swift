@@ -10,9 +10,9 @@ class AlarmScheduler {
         let content = UNMutableNotificationContent()
         content.title = "アラーム"
         content.body = "\(alarm.name)に到達しました！"
-        content.sound = alarm.isSoundEnabled
-            ? UNNotificationSound(named: UNNotificationSoundName(rawValue: "\(alarm.sound).mp3"))
-            : nil
+        // 選択音源は SoundPlayer が音楽再生する。通知側は30秒制限のある
+        // カスタム音源を指定せず、再生失敗時にも気づける補助音だけを使う。
+        content.sound = alarm.isSoundEnabled ? .default : nil
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         return UNNotificationRequest(

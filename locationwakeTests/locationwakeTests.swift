@@ -239,8 +239,22 @@ final class locationwakeTests: XCTestCase {
         XCTAssertEqual(request.identifier, "arrival")
         XCTAssertEqual(request.content.title, "アラーム")
         XCTAssertEqual(request.content.body, "Destinationに到達しました！")
+        XCTAssertNotNil(request.content.sound)
         XCTAssertEqual(trigger.timeInterval, 1)
         XCTAssertFalse(trigger.repeats)
+    }
+
+    func testAlarmSchedulerUsesNoNotificationSoundWhenAlarmSoundIsDisabled() {
+        let alarm = Alarm(
+            id: "silent",
+            name: "Silent",
+            sound: "kind",
+            isAlarmEnabled: true,
+            isSoundEnabled: false,
+            isVibrationEnabled: true
+        )
+
+        XCTAssertNil(AlarmScheduler.makeNotificationRequest(for: alarm).content.sound)
     }
 
     func testGeofenceEligibleAlarmsOnlyIncludesEnabledAlarmsWithLocationAndRadius() {
