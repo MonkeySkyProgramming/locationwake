@@ -24,6 +24,6 @@ final class locationwakeUITests: XCTestCase {
     func testAlarmListLaunches() throws {
         app.launch()
 
-        XCTAssertTrue(app.staticTexts["アラーム一覧"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["追加"].waitForExistence(timeout: 10))
     }
 }

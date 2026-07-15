@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreLocation
+import MapKit
 import UserNotifications
 
 struct CoordinateWrapper: Hashable {
@@ -68,33 +69,41 @@ struct AlarmListSwiftUIView: View {
     var body: some View {
         BaseContainerView {
             NavigationStack(path: $navigationModel.path) {
-                VStack(spacing: 0) {
-                    AppNavigationHeader(title: "アラーム一覧") {
-                        AppIconButton(systemName: "plus") {
-                            if viewModel.canAddAlarm {
-                                navigationModel.path.append(.locationSelection)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(alignment: .center) {
+                            Text("アラーム")
+                                .font(.system(size: 34, weight: .bold))
+                            Spacer()
+                            AppIconButton(systemName: "gearshape") {
+                                navigationModel.path.append(.settings)
                             }
+                            .accessibilityLabel("設定")
                         }
-                        .disabled(!viewModel.canAddAlarm)
-                        .opacity(viewModel.canAddAlarm ? 1 : 0.35)
-                    }
-                    .overlay(alignment: .leading) {
-                        AppIconButton(systemName: "gear") {
-                            navigationModel.path.append(.settings)
-                        }
-                    }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+
+                        Text("設定した場所への到着を検知すると、\nアラームでお知らせします。")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.secondary)
+                            .lineSpacing(5)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 12)
+                            .padding(.bottom, 34)
 
                     if hasSettingsIssue {
                         Button {
                             navigationModel.path.append(.settings)
                         } label: {
                             Label("到着通知に必要な設定を確認してください", systemImage: "exclamationmark.triangle.fill")
-                                .font(.footnote)
-                                .foregroundColor(.orange)
+                                .font(.footnote.weight(.medium))
+                                .foregroundStyle(.orange)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
+                                .padding(12)
+                                .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
                     }
 
                     if !viewModel.canAddAlarm {
@@ -114,47 +123,87 @@ struct AlarmListSwiftUIView: View {
                                 .foregroundColor(.secondary)
                         }
                         .padding(12)
-                        .background(Color.orange.opacity(0.12))
+                        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal, 16)
                     }
 
-                    List {
-                        ForEach(viewModel.alarms, id: \.id) { alarm in
-                            HStack {
-                                VStack(alignment: .leading) {
-                                    Text(alarm.name)
-                                        .font(.headline)
-                                    let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
-                                    let repeatText = (alarm.repeatWeekdays?.isEmpty ?? true) ? "" : "（" + alarm.repeatWeekdays!.sorted().map { weekdays[$0] }.joined(separator: "・") + "）"
-                                    let vibrationText = alarm.isVibrationEnabled ? "・バイブレーション" : ""
-                                    let soundText = alarm.isSoundEnabled ? "・\(alarm.sound)" : ""
-                                    Text((alarm.isAlarmEnabled ? "有効" : "無効") + soundText + vibrationText  + repeatText)
-                                        .font(.subheadline)
-                                        .foregroundColor(.gray)
-                                }
+                        AppSectionTitle(title: "有効なアラーム")
+                            .padding(.bottom, 8)
 
-                                Spacer()
+                    if viewModel.alarms.isEmpty {
+                        ContentUnavailableView {
+                            Label("アラームはまだありません", systemImage: "bell.slash")
+                        } description: {
+                            Text("目的地を追加すると、近づいたときにお知らせします。")
+                        } actions: {
+                            Button("目的地を追加", systemImage: "plus.circle.fill") {
+                                navigationModel.path.append(.locationSelection)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(AppDesign.tint)
 
-                                Toggle("", isOn: Binding(
-                                    get: { alarm.isAlarmEnabled },
-                                    set: { newValue in
-                                        if let index = viewModel.alarms.firstIndex(where: { $0.id == alarm.id }) {
-                                            viewModel.alarms[index].isAlarmEnabled = newValue
-                                            viewModel.saveAlarms()
+                            Button("サンプルを追加") {
+                                viewModel.createSampleAlarm()
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                            .frame(maxWidth: .infinity, minHeight: 260)
+                    } else {
+                        AppCard {
+                            VStack(spacing: 0) {
+                                ForEach(Array(viewModel.alarms.enumerated()), id: \.element.id) { index, alarm in
+                                    AlarmListRow(alarm: alarm, showsMap: true, isEnabled: Binding(
+                                        get: { alarm.isAlarmEnabled },
+                                        set: { newValue in
+                                            if let index = viewModel.alarms.firstIndex(where: { $0.id == alarm.id }) {
+                                                viewModel.alarms[index].isAlarmEnabled = newValue
+                                                viewModel.saveAlarms()
+                                            }
+                                        }
+                                    )) {
+                                        if alarm.location != nil {
+                                            navigationModel.path.append(.alarmDetail(alarm: alarm))
                                         }
                                     }
-                                ))
-                                .labelsHidden()
-                            }
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                if alarm.location != nil {
-                                    navigationModel.path.append(.alarmDetail(alarm: alarm))
+                                    if index < viewModel.alarms.count - 1 {
+                                        Divider().padding(.leading, 126)
+                                    }
                                 }
                             }
                         }
-                        .onDelete(perform: viewModel.deleteAlarm)
+                        .padding(.horizontal, 16)
+                    }
+
+                        AppSectionTitle(title: "アラームを追加")
+                            .padding(.top, 24)
+                            .padding(.bottom, 8)
+
+                        AppCard {
+                            Button {
+                                navigationModel.path.append(.locationSelection)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.system(size: 28))
+                                    Text("目的地を追加")
+                                        .font(.system(size: 18, weight: .semibold))
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .foregroundStyle(AppDesign.tint)
+                                .padding(.horizontal, 14)
+                                .frame(height: 58)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 16)
+
+                        AdScrollClearance()
                     }
                 }
+                .padding(.top, -44)
+                .background(AppDesign.background)
                 .navigationDestination(for: NavigationRoute.self) { route in
                     switch route {
                     case .locationSelection:
@@ -243,25 +292,27 @@ class AlarmListViewModel: ObservableObject {
             self.alarms = loadedAlarms
             print("✅ 読み込み成功: \(alarms.map { $0.name })")
         }
-        // データが読み込めなかった・空だった場合はサンプルアラームを追加
-        if self.alarms.isEmpty {
-            let sampleAlarm = Alarm(
-                id: UUID().uuidString,
-                name: "サンプルアラーム",
-                repeatWeekdays: [],
-                sound: "modan",
-                isAlarmEnabled: false,
-                isSoundEnabled: true,
-                isVibrationEnabled: false,
-                location: Location(latitude: 34.702485, longitude: 135.495951),
-                radius: 300.0,
-                hasTriggered: false,
-                hasTriggeredUntilExit: false
-            )
-            self.alarms = [sampleAlarm]
-            print("📦 アラームが空のためサンプルアラームを追加")
-            saveAlarms()
+        if loadedAlarms.isEmpty {
+            self.alarms = []
         }
+    }
+
+    func createSampleAlarm() {
+        let sampleAlarm = Alarm(
+            id: UUID().uuidString,
+            name: "サンプルアラーム",
+            repeatWeekdays: [],
+            sound: "modan",
+            isAlarmEnabled: false,
+            isSoundEnabled: true,
+            isVibrationEnabled: false,
+            location: Location(latitude: 34.702485, longitude: 135.495951),
+            radius: 300.0,
+            hasTriggered: false,
+            hasTriggeredUntilExit: false
+        )
+        alarms = [sampleAlarm]
+        saveAlarms()
     }
 
     func saveAlarms() {
@@ -287,4 +338,100 @@ class AlarmListViewModel: ObservableObject {
             self.loadAlarms()
         }
     }
+}
+
+private struct AlarmListRow: View {
+    let alarm: Alarm
+    let showsMap: Bool
+    @Binding var isEnabled: Bool
+    let onOpen: () -> Void
+
+    private var detail: String {
+        let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
+        let repeatText = (alarm.repeatWeekdays?.isEmpty ?? true) ? "毎日" : alarm.repeatWeekdays!.sorted().map { weekdays[$0] }.joined(separator: "・")
+        let soundText = alarm.isSoundEnabled ? "音" : "無音"
+        let vibrationText = alarm.isVibrationEnabled ? "とバイブ" : ""
+        return "半径 \(Int(alarm.geofenceRadius ?? Alarm.defaultGeofenceRadius)) m・\(repeatText)・\(soundText)\(vibrationText)"
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button(action: onOpen) {
+                HStack(spacing: 12) {
+                    if showsMap, let location = alarm.location {
+                        AlarmMapPreview(location: location, radius: alarm.geofenceRadius ?? Alarm.defaultGeofenceRadius)
+                            .frame(width: 112, height: 112)
+                    } else {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.secondary.opacity(0.08))
+                            .frame(width: 56, height: 56)
+                            .overlay {
+                                Image(systemName: "mappin")
+                                    .font(.system(size: 26, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                    }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(alarm.name)
+                            .font(.body.weight(.semibold))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(alarm.isAlarmEnabled ? detail : "オフ")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .layoutPriority(1)
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .layoutPriority(1)
+            .accessibilityLabel("\(alarm.name)の設定を開く")
+
+            Toggle("\(alarm.name)を有効にする", isOn: $isEnabled)
+                .labelsHidden()
+                .tint(AppDesign.tint)
+            Button(action: onOpen) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 20, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(alarm.name)の設定を開く")
+        }
+        .padding(.horizontal, 12)
+        .frame(minHeight: showsMap ? 130 : 82)
+        .contentShape(Rectangle())
+    }
+}
+
+private struct AlarmMapPreview: View {
+    let location: Location
+    let radius: Double
+
+    private var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude)
+    }
+
+    var body: some View {
+        Map(initialPosition: .region(MKCoordinateRegion(
+            center: coordinate,
+            latitudinalMeters: max(radius * 3.2, 900),
+            longitudinalMeters: max(radius * 3.2, 900)
+        )), interactionModes: []) {
+            MapCircle(center: coordinate, radius: radius)
+                .foregroundStyle(AppDesign.tint.opacity(0.18))
+                .stroke(AppDesign.tint, lineWidth: 2)
+            Marker(alarmLabel, coordinate: coordinate)
+                .tint(AppDesign.tint)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityHidden(true)
+    }
+
+    private var alarmLabel: String { "目的地" }
 }

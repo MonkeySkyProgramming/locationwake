@@ -99,15 +99,14 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.pausesLocationUpdatesAutomatically = false
         let currentStatus = locationManager.authorizationStatus
-        if currentStatus != .authorizedAlways {
-            print("📣 位置情報の常に許可が必要です。リクエスト中...")
-            locationManager.requestAlwaysAuthorization()
-        } else {
+        if currentStatus == .authorizedAlways {
             print("✅ locationManager.authorizationStatus により常に許可が検出されました")
         }
         // 認可ステータスの変化確認のために毎回チェック
         self.locationManagerDidChangeAuthorization(self.locationManager)
-        locationManager.startUpdatingLocation()
+        if currentStatus == .authorizedAlways {
+            locationManager.startUpdatingLocation()
+        }
         
         // iOSに「常に許可」ダイアログを促すため、ダミーのジオフェンスを追加
         if locationManager.authorizationStatus == .authorizedAlways {
@@ -508,12 +507,16 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     // iOS 14+ 向けの新しい認可変更コールバック
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
+        NotificationCenter.default.post(
+            name: .locationAuthorizationDidChange,
+            object: nil,
+            userInfo: ["status": status.rawValue]
+        )
         switch status {
         case .authorizedAlways:
             print("✅ locationManagerDidChangeAuthorization: 実際に「常に許可」が付与されました")
         case .authorizedWhenInUse:
             print("⚠️ locationManagerDidChangeAuthorization: 「使用中のみ許可」です → 「常に許可」が必要です。設定アプリで変更してください")
-            manager.requestAlwaysAuthorization()
         case .denied, .restricted:
             print("❌ locationManagerDidChangeAuthorization: 位置情報の使用が制限または拒否されています。設定アプリで確認してください")
         case .notDetermined:
@@ -548,4 +551,8 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             print("⚠️ 未知の状態")
         }
     }
+}
+
+extension Notification.Name {
+    static let locationAuthorizationDidChange = Notification.Name("LocationAuthorizationDidChange")
 }
