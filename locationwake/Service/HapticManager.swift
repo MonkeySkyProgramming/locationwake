@@ -47,25 +47,29 @@ struct HapticManager {
 
     static func triggerRepeated(_ type: HapticType, count: Int, interval: TimeInterval) {
         stop()
-        let safeCount = min(max(count, 0), 300)
-        guard safeCount > 0 else { return }
-        var remaining = safeCount
-        var currentInterval = max(interval, 0.2)
+        var remaining = normalizedRepeatCount(count)
+        if let remaining, remaining <= 0 { return }
+        let safeInterval = max(interval, 0.2)
 
         func scheduleNext() {
-            guard remaining > 0 else {
+            if let remaining, remaining <= 0 {
                 activeTimer = nil
                 return
             }
-            activeTimer = Timer.scheduledTimer(withTimeInterval: currentInterval, repeats: false) { _ in
+            activeTimer = Timer.scheduledTimer(withTimeInterval: safeInterval, repeats: false) { _ in
                 activeTimer = nil
                 trigger(type)
-                remaining -= 1
-                currentInterval = max(0.2, currentInterval * 0.8)
+                if let currentRemaining = remaining {
+                    remaining = currentRemaining - 1
+                }
                 scheduleNext()
             }
         }
         scheduleNext()
+    }
+
+    static func normalizedRepeatCount(_ count: Int) -> Int? {
+        count == .max ? nil : min(max(count, 0), 300)
     }
 
     static func stop() {

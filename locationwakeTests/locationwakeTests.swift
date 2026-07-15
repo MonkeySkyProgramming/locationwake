@@ -542,6 +542,13 @@ final class locationwakeTests: XCTestCase {
         XCTAssertFalse(LocationManager.isUsableLocation(inaccurate, now: now, maximumHorizontalAccuracy: 100))
     }
 
+    func testHapticRepeatCountUsesNilForContinuousAlarmVibration() {
+        XCTAssertNil(HapticManager.normalizedRepeatCount(.max))
+        XCTAssertEqual(HapticManager.normalizedRepeatCount(10), 10)
+        XCTAssertEqual(HapticManager.normalizedRepeatCount(1_000), 300)
+        XCTAssertEqual(HapticManager.normalizedRepeatCount(-1), 0)
+    }
+
     func testAppRuntimeSuppressesExternalSideEffectsInUnitTests() {
         XCTAssertTrue(AppRuntime.shouldSuppressExternalSideEffects)
     }

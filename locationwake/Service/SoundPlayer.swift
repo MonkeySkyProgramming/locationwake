@@ -6,13 +6,30 @@ final class SoundPlayer: NSObject, AVAudioPlayerDelegate {
     
     var player: AVAudioPlayer?
     private var stopTimer: Timer?
+    private var isPlaybackRequested = false
     
     // プライベートイニシャライザで外部からのインスタンス化を防ぐ
     private override init() {
         super.init()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioSessionInterruption(_:)),
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance()
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     func playSound(named soundName: String) {
+        stopTimer?.invalidate()
+        stopTimer = nil
+        player?.stop()
+        player = nil
+        isPlaybackRequested = false
+
         guard let url = Bundle.main.url(forResource: soundName, withExtension: "mp3") else {
             print("サウンドファイルが見つかりません: \(soundName)")
             deactivateAudioSession()
@@ -20,8 +37,6 @@ final class SoundPlayer: NSObject, AVAudioPlayerDelegate {
         }
 
         do {
-            player?.stop()
-
             // 長時間のアラームでは他アプリの音声を一時停止し、停止後に再開可能であることを通知する。
             // duckOthers は短時間利用向けのため、ループ再生するアラームでは使用しない。
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
@@ -34,8 +49,10 @@ final class SoundPlayer: NSObject, AVAudioPlayerDelegate {
                 throw SoundPlayerError.playbackDidNotStart
             }
             player = newPlayer
+            isPlaybackRequested = true
         } catch {
             player = nil
+            isPlaybackRequested = false
             deactivateAudioSession()
             print("サウンド再生エラー: \(error.localizedDescription)")
         }
@@ -54,6 +71,7 @@ final class SoundPlayer: NSObject, AVAudioPlayerDelegate {
     }
     
     func stopSound() {
+        isPlaybackRequested = false
         player?.stop()
         player = nil  // メモリを解放するためにplayerをnilに設定
         stopTimer?.invalidate()
@@ -74,15 +92,50 @@ final class SoundPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        isPlaybackRequested = false
         self.player = nil
+        stopTimer?.invalidate()
+        stopTimer = nil
         deactivateAudioSession()
     }
 
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        isPlaybackRequested = false
         self.player = nil
+        stopTimer?.invalidate()
+        stopTimer = nil
         deactivateAudioSession()
         if let error {
             print("サウンドのデコード中にエラーが発生しました: \(error.localizedDescription)")
+        }
+    }
+
+    @objc private func handleAudioSessionInterruption(_ notification: Notification) {
+        guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: rawType) else {
+            return
+        }
+
+        switch type {
+        case .began:
+            if isPlaybackRequested {
+                player?.pause()
+            }
+        case .ended:
+            guard isPlaybackRequested, let player else { return }
+            do {
+                try AVAudioSession.sharedInstance().setActive(true)
+                guard player.play() else {
+                    throw SoundPlayerError.playbackDidNotStart
+                }
+            } catch {
+                isPlaybackRequested = false
+                self.player = nil
+                deactivateAudioSession()
+                print("割り込み後のアラーム再開に失敗しました: \(error.localizedDescription)")
+            }
+        @unknown default:
+            break
         }
     }
 
