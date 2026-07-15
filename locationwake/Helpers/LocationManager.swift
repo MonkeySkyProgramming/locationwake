@@ -121,36 +121,26 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             return
         }
 
-        // 必要な設定: バックグラウンド位置情報更新を有効化し、自動停止を無効化
+        // 移動中の到着判定に必要な精度を保ちつつ、省電力設定でバックグラウンド更新する。
         locationManager.allowsBackgroundLocationUpdates = true
-        locationManager.pausesLocationUpdatesAutomatically = false
+        locationManager.pausesLocationUpdatesAutomatically = true
+        locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        locationManager.distanceFilter = 50
+        locationManager.activityType = .otherNavigation
         let currentStatus = locationManager.authorizationStatus
         if currentStatus == .authorizedAlways {
             print("✅ locationManager.authorizationStatus により常に許可が検出されました")
         }
         // 認可ステータスの変化確認のために毎回チェック
         self.locationManagerDidChangeAuthorization(self.locationManager)
-        if currentStatus == .authorizedAlways {
-            locationManager.startUpdatingLocation()
-        }
-        
-        // iOSに「常に許可」ダイアログを促すため、ダミーのジオフェンスを追加
-        if locationManager.authorizationStatus == .authorizedAlways {
-            // Attempt to trigger background location update mechanism
-            if let currentLocation = locationManager.location {
-                let dummyRegion = CLCircularRegion(center: currentLocation.coordinate, radius: 50.0, identifier: "BackgroundTrigger")
-                dummyRegion.notifyOnEntry = true
-                dummyRegion.notifyOnExit = true
-                locationManager.startMonitoring(for: dummyRegion)
-                print("📣 仮ジオフェンスを追加して常に許可のダイアログを誘導")
-            }
-        }
 
         // 通知の許可をリクエスト
         NotificationManager.shared.requestNotificationPermission()
 
-        // 監視領域を定期的に出力するためのタイマーを開始
+        // 監視領域の定期ログはデバッグビルドだけで使用する。
+#if DEBUG
         startMonitoringGeofenceStatus()
+#endif
         // 追加: 定期的な認可ステータスチェックを開始
         startAuthorizationStatusCheck()
 
@@ -176,7 +166,8 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     // 保存済みアラームと監視領域を同期する。変更のない領域は停止しない。
     func startMonitoring(alarms: [Alarm], skipImmediateCheck: Bool = false) {
         self.alarms = Alarm.normalizedForPersistence(alarms)
-        if let currentLocation = locationManager.location?.coordinate, !skipImmediateCheck {
+        updateContinuousLocationMonitoring(for: locationManager.authorizationStatus)
+        if let currentLocation = locationManager.location, !skipImmediateCheck {
             for alarm in Self.geofenceEligibleAlarms(from: self.alarms) {
                 if UserDefaults.standard.bool(forKey: "SkipTrigger_\(alarm.id)") {
                     print("🚫 \(alarm.name) は保存直後のため startMonitoring でトリガーをスキップ")
@@ -184,12 +175,19 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
                     continue
                 }
                 guard let location = alarm.location, let radius = alarm.geofenceRadius else { continue }
+                guard Self.isUsableLocation(
+                    currentLocation,
+                    maximumHorizontalAccuracy: Self.maximumHorizontalAccuracy(for: radius)
+                ) else {
+                    print("ℹ️ event=immediateTriggerSkipped alarmID=\(alarm.id) reason=staleOrInaccurateLocation")
+                    continue
+                }
                 if alarm.hasTriggered {
                     print("⏹️ トリガー済みアラームをスキップ: \(alarm.name)")
                     continue
                 }
                 let destination = CLLocation(latitude: location.latitude, longitude: location.longitude)
-                let current = CLLocation(latitude: currentLocation.latitude, longitude: currentLocation.longitude)
+                let current = CLLocation(latitude: currentLocation.coordinate.latitude, longitude: currentLocation.coordinate.longitude)
                 if current.distance(from: destination) <= radius {
                     print("🚨 現在地は \(alarm.name) のジオフェンス内 → 即時トリガー")
                     triggerAlarm(for: alarm)
@@ -449,6 +447,13 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
             guard let destination = alarm.location,
                   let radius = alarm.geofenceRadius else { continue }
+            guard Self.isUsableLocation(
+                location,
+                maximumHorizontalAccuracy: Self.maximumHorizontalAccuracy(for: radius)
+            ) else {
+                print("ℹ️ event=locationUpdateSkipped alarmID=\(alarm.id) reason=staleOrInaccurateLocation")
+                continue
+            }
             let current = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
             let target = CLLocation(latitude: destination.latitude, longitude: destination.longitude)
             let distance = current.distance(from: target)
@@ -531,12 +536,42 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         }
     }
 
-    static func shouldRunContinuousLocationMonitoring(for status: CLAuthorizationStatus) -> Bool {
-        status == .authorizedAlways
+    static func shouldRunContinuousLocationMonitoring(
+        for status: CLAuthorizationStatus,
+        alarms: [Alarm],
+        maximumGeofenceRadius: CLLocationDistance?
+    ) -> Bool {
+        guard status == .authorizedAlways else { return false }
+        return geofenceEligibleAlarms(from: alarms).contains { alarm in
+            let usesSelectedWeekdays = !(alarm.repeatWeekdays?.isEmpty ?? true)
+            guard let maximumGeofenceRadius, let radius = alarm.geofenceRadius else {
+                return true
+            }
+            return usesSelectedWeekdays || radius > maximumGeofenceRadius
+        }
+    }
+
+    static func maximumHorizontalAccuracy(for radius: CLLocationDistance) -> CLLocationAccuracy {
+        min(max(radius / 2, 100), 1_000)
+    }
+
+    static func isUsableLocation(
+        _ location: CLLocation,
+        now: Date = Date(),
+        maximumAge: TimeInterval = 30,
+        maximumHorizontalAccuracy: CLLocationAccuracy
+    ) -> Bool {
+        location.horizontalAccuracy >= 0
+            && location.horizontalAccuracy <= maximumHorizontalAccuracy
+            && abs(now.timeIntervalSince(location.timestamp)) <= maximumAge
     }
 
     private func updateContinuousLocationMonitoring(for status: CLAuthorizationStatus) {
-        if Self.shouldRunContinuousLocationMonitoring(for: status) {
+        if Self.shouldRunContinuousLocationMonitoring(
+            for: status,
+            alarms: alarms,
+            maximumGeofenceRadius: maximumGeofenceRadius
+        ) {
             locationManager.startUpdatingLocation()
         } else {
             locationManager.stopUpdatingLocation()

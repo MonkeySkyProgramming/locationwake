@@ -152,19 +152,27 @@ struct AlarmListSwiftUIView: View {
                         AppCard {
                             VStack(spacing: 0) {
                                 ForEach(Array(viewModel.alarms.enumerated()), id: \.element.id) { index, alarm in
-                                    AlarmListRow(alarm: alarm, showsMap: true, isEnabled: Binding(
-                                        get: { alarm.isAlarmEnabled },
-                                        set: { newValue in
-                                            if let index = viewModel.alarms.firstIndex(where: { $0.id == alarm.id }) {
-                                                viewModel.alarms[index].setEnabled(newValue)
-                                                viewModel.saveAlarms()
+                                    AlarmListRow(
+                                        alarm: alarm,
+                                        showsMap: true,
+                                        isEnabled: Binding(
+                                            get: { alarm.isAlarmEnabled },
+                                            set: { newValue in
+                                                if let index = viewModel.alarms.firstIndex(where: { $0.id == alarm.id }) {
+                                                    viewModel.alarms[index].setEnabled(newValue)
+                                                    viewModel.saveAlarms()
+                                                }
                                             }
+                                        ),
+                                        onOpen: {
+                                            if alarm.location != nil {
+                                                navigationModel.path.append(.alarmDetail(alarm: alarm))
+                                            }
+                                        },
+                                        onDelete: {
+                                            viewModel.deleteAlarm(id: alarm.id)
                                         }
-                                    )) {
-                                        if alarm.location != nil {
-                                            navigationModel.path.append(.alarmDetail(alarm: alarm))
-                                        }
-                                    }
+                                    )
                                     if index < viewModel.alarms.count - 1 {
                                         Divider().padding(.leading, 126)
                                     }
@@ -333,6 +341,15 @@ class AlarmListViewModel: ObservableObject {
         saveAlarms()
     }
 
+    func deleteAlarm(id: String) {
+        guard let index = alarms.firstIndex(where: { $0.id == id }) else { return }
+        let deletedAlarm = alarms.remove(at: index)
+        if !AppRuntime.shouldSuppressExternalSideEffects {
+            LocationManager.shared.stopMonitoringForAlarm(alarm: deletedAlarm)
+        }
+        saveAlarms()
+    }
+
     @objc private func handleAlarmUpdated() {
         DispatchQueue.main.async {
             self.loadAlarms()
@@ -345,6 +362,8 @@ private struct AlarmListRow: View {
     let showsMap: Bool
     @Binding var isEnabled: Bool
     let onOpen: () -> Void
+    let onDelete: () -> Void
+    @State private var showsDeleteConfirmation = false
 
     private var detail: String {
         let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
@@ -394,18 +413,30 @@ private struct AlarmListRow: View {
             Toggle("\(alarm.name)を有効にする", isOn: $isEnabled)
                 .labelsHidden()
                 .tint(AppDesign.tint)
-            Button(action: onOpen) {
-                Image(systemName: "chevron.right")
+            Menu {
+                Button("設定を開く", systemImage: "slider.horizontal.3", action: onOpen)
+                Button("アラームを削除", systemImage: "trash", role: .destructive) {
+                    showsDeleteConfirmation = true
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.tertiary)
-                    .frame(width: 20, height: 44)
+                    .frame(width: 28, height: 44)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("\(alarm.name)の設定を開く")
+            .accessibilityLabel("\(alarm.name)の操作")
         }
         .padding(.horizontal, 12)
         .frame(minHeight: showsMap ? 130 : 82)
         .contentShape(Rectangle())
+        .confirmationDialog(
+            "「\(alarm.name)」を削除しますか？",
+            isPresented: $showsDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("削除", role: .destructive, action: onDelete)
+            Button("キャンセル", role: .cancel) {}
+        }
     }
 }
 

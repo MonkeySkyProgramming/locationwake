@@ -281,11 +281,19 @@ struct AlarmDetailView: View {
         }
         // Insert geofence check and update hasTriggeredUntilExit before saving
         let manager: CLLocationManager = LocationManager.shared.locationManager
-        if let userLocation = manager.location?.coordinate {
+        let radius = alarm.geofenceRadius ?? Alarm.defaultGeofenceRadius
+        if let userLocation = manager.location,
+           LocationManager.isUsableLocation(
+               userLocation,
+               maximumHorizontalAccuracy: LocationManager.maximumHorizontalAccuracy(for: radius)
+           ) {
             let center = CLLocation(latitude: alarm.location?.latitude ?? 0, longitude: alarm.location?.longitude ?? 0)
-            let current = CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude)
+            let current = CLLocation(
+                latitude: userLocation.coordinate.latitude,
+                longitude: userLocation.coordinate.longitude
+            )
             let distance = current.distance(from: center)
-            let isInside = distance <= (alarm.geofenceRadius ?? Alarm.defaultGeofenceRadius)
+            let isInside = distance <= radius
             var updatedAlarm = alarm
             if updatedAlarm.id.isEmpty {
                 updatedAlarm.id = UUID().uuidString

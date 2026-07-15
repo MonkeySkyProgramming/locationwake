@@ -466,9 +466,80 @@ final class locationwakeTests: XCTestCase {
     }
 
     func testContinuousLocationMonitoringRequiresAlwaysAuthorization() {
-        XCTAssertTrue(LocationManager.shouldRunContinuousLocationMonitoring(for: .authorizedAlways))
-        XCTAssertFalse(LocationManager.shouldRunContinuousLocationMonitoring(for: .authorizedWhenInUse))
-        XCTAssertFalse(LocationManager.shouldRunContinuousLocationMonitoring(for: .denied))
+        let alarm = Alarm(
+            id: "monitoring",
+            name: "Monitoring",
+            sound: "kind",
+            isAlarmEnabled: true,
+            isSoundEnabled: true,
+            isVibrationEnabled: false,
+            location: Location(latitude: 34, longitude: 135),
+            radius: 5_000
+        )
+
+        XCTAssertTrue(LocationManager.shouldRunContinuousLocationMonitoring(
+            for: .authorizedAlways,
+            alarms: [alarm],
+            maximumGeofenceRadius: 1_000
+        ))
+        XCTAssertFalse(LocationManager.shouldRunContinuousLocationMonitoring(
+            for: .authorizedAlways,
+            alarms: [],
+            maximumGeofenceRadius: 1_000
+        ))
+        XCTAssertFalse(LocationManager.shouldRunContinuousLocationMonitoring(
+            for: .authorizedWhenInUse,
+            alarms: [alarm],
+            maximumGeofenceRadius: 1_000
+        ))
+        XCTAssertFalse(LocationManager.shouldRunContinuousLocationMonitoring(
+            for: .denied,
+            alarms: [alarm],
+            maximumGeofenceRadius: 1_000
+        ))
+
+        var geofenceAlarm = alarm
+        geofenceAlarm.radius = 300
+        XCTAssertFalse(LocationManager.shouldRunContinuousLocationMonitoring(
+            for: .authorizedAlways,
+            alarms: [geofenceAlarm],
+            maximumGeofenceRadius: 1_000
+        ))
+        geofenceAlarm.repeatWeekdays = [1, 3, 5]
+        XCTAssertTrue(LocationManager.shouldRunContinuousLocationMonitoring(
+            for: .authorizedAlways,
+            alarms: [geofenceAlarm],
+            maximumGeofenceRadius: 1_000
+        ))
+    }
+
+    func testUsableLocationRequiresFreshTimestampAndAcceptableAccuracy() {
+        let now = Date(timeIntervalSince1970: 1_000)
+        let fresh = CLLocation(
+            coordinate: CLLocationCoordinate2D(latitude: 34, longitude: 135),
+            altitude: 0,
+            horizontalAccuracy: 50,
+            verticalAccuracy: 10,
+            timestamp: now.addingTimeInterval(-5)
+        )
+        let stale = CLLocation(
+            coordinate: fresh.coordinate,
+            altitude: 0,
+            horizontalAccuracy: 50,
+            verticalAccuracy: 10,
+            timestamp: now.addingTimeInterval(-31)
+        )
+        let inaccurate = CLLocation(
+            coordinate: fresh.coordinate,
+            altitude: 0,
+            horizontalAccuracy: 101,
+            verticalAccuracy: 10,
+            timestamp: now
+        )
+
+        XCTAssertTrue(LocationManager.isUsableLocation(fresh, now: now, maximumHorizontalAccuracy: 100))
+        XCTAssertFalse(LocationManager.isUsableLocation(stale, now: now, maximumHorizontalAccuracy: 100))
+        XCTAssertFalse(LocationManager.isUsableLocation(inaccurate, now: now, maximumHorizontalAccuracy: 100))
     }
 
     func testAppRuntimeSuppressesExternalSideEffectsInUnitTests() {
