@@ -1,4 +1,5 @@
 import XCTest
+import CoreLocation
 import UserNotifications
 @testable import locationwake
 
@@ -371,6 +372,89 @@ final class locationwakeTests: XCTestCase {
                 now: now
             )
         )
+    }
+
+    func testReenablingAlarmClearsPreviousTriggerState() {
+        var alarm = Alarm(
+            id: "reenable",
+            name: "Reenable",
+            sound: "kind",
+            isAlarmEnabled: false,
+            isSoundEnabled: true,
+            isVibrationEnabled: false,
+            hasTriggered: true,
+            hasTriggeredUntilExit: true
+        )
+
+        alarm.setEnabled(true)
+
+        XCTAssertTrue(alarm.isAlarmEnabled)
+        XCTAssertFalse(alarm.hasTriggered)
+        XCTAssertFalse(alarm.hasTriggeredUntilExit)
+    }
+
+    func testAlarmStoreKeepsValidAlarmsWhenOneSavedItemIsInvalid() throws {
+        let suiteName = "AlarmStoreLossyTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let json = """
+        [
+          {"id":"valid-1","name":"First","sound":"kind","isAlarmEnabled":true,"isSoundEnabled":true},
+          {"id":"invalid","name":"Broken","isAlarmEnabled":true,"isSoundEnabled":true},
+          {"id":"valid-2","name":"Second","sound":"siren","isAlarmEnabled":false,"isSoundEnabled":false}
+        ]
+        """.data(using: .utf8)!
+        defaults.set(json, forKey: AlarmStore.savedAlarmsKey)
+
+        let alarms = AlarmStore.load(from: defaults)
+
+        XCTAssertEqual(alarms.map(\.id), ["valid-1", "valid-2"])
+    }
+
+    func testProximityPolicyTriggersWhenWeekdayBecomesEligibleWhileStillInside() {
+        let alarm = Alarm(
+            id: "weekday-inside",
+            name: "Weekday",
+            repeatWeekdays: [2],
+            sound: "kind",
+            isAlarmEnabled: true,
+            isSoundEnabled: true,
+            isVibrationEnabled: false
+        )
+
+        XCTAssertEqual(
+            AlarmTriggerPolicy.proximityAction(for: alarm, distance: 50, radius: 100, weekday: 1),
+            .none
+        )
+        XCTAssertEqual(
+            AlarmTriggerPolicy.proximityAction(for: alarm, distance: 50, radius: 100, weekday: 2),
+            .trigger
+        )
+    }
+
+    func testProximityPolicyResetsAfterExitEvenOnIneligibleWeekday() {
+        let alarm = Alarm(
+            id: "exit",
+            name: "Exit",
+            repeatWeekdays: [2],
+            sound: "kind",
+            isAlarmEnabled: true,
+            isSoundEnabled: true,
+            isVibrationEnabled: false,
+            hasTriggered: true,
+            hasTriggeredUntilExit: true
+        )
+
+        XCTAssertEqual(
+            AlarmTriggerPolicy.proximityAction(for: alarm, distance: 101, radius: 100, weekday: 1),
+            .resetAfterExit
+        )
+    }
+
+    func testContinuousLocationMonitoringRequiresAlwaysAuthorization() {
+        XCTAssertTrue(LocationManager.shouldRunContinuousLocationMonitoring(for: .authorizedAlways))
+        XCTAssertFalse(LocationManager.shouldRunContinuousLocationMonitoring(for: .authorizedWhenInUse))
+        XCTAssertFalse(LocationManager.shouldRunContinuousLocationMonitoring(for: .denied))
     }
 
     func testAppRuntimeSuppressesExternalSideEffectsInUnitTests() {

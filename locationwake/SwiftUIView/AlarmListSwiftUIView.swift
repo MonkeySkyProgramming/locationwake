@@ -156,7 +156,7 @@ struct AlarmListSwiftUIView: View {
                                         get: { alarm.isAlarmEnabled },
                                         set: { newValue in
                                             if let index = viewModel.alarms.firstIndex(where: { $0.id == alarm.id }) {
-                                                viewModel.alarms[index].isAlarmEnabled = newValue
+                                                viewModel.alarms[index].setEnabled(newValue)
                                                 viewModel.saveAlarms()
                                             }
                                         }

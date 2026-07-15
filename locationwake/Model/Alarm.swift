@@ -34,6 +34,15 @@ struct Alarm: Codable, Identifiable, Equatable {
         Self.normalizedRadius(radius)
     }
 
+    mutating func setEnabled(_ enabled: Bool) {
+        let isBeingReenabled = enabled && !isAlarmEnabled
+        isAlarmEnabled = enabled
+        if isBeingReenabled {
+            hasTriggered = false
+            hasTriggeredUntilExit = false
+        }
+    }
+
     static func normalizedForPersistence(_ alarms: [Alarm]) -> [Alarm] {
         var usedIDs = Set<String>()
         return alarms.map { alarm in
@@ -101,16 +110,28 @@ enum AlarmStore {
 
     static func load(from defaults: UserDefaults = .standard) -> [Alarm] {
         guard let data = defaults.data(forKey: savedAlarmsKey),
-              let decoded = try? JSONDecoder().decode([Alarm].self, from: data) else {
+              let decoded = try? JSONDecoder().decode([LossyAlarm].self, from: data) else {
             return []
         }
 
-        let alarms = Alarm.normalizedForPersistence(decoded)
+        let alarms = Alarm.normalizedForPersistence(decoded.compactMap(\.value))
+        let discardedCount = decoded.count - alarms.count
+        if discardedCount > 0 {
+            print("⚠️ event=invalidSavedAlarmsDiscarded count=\(discardedCount)")
+        }
         migrateLegacyTriggerState(for: alarms, defaults: defaults)
         if let normalizedData = try? JSONEncoder().encode(alarms), normalizedData != data {
             defaults.set(normalizedData, forKey: savedAlarmsKey)
         }
         return alarms
+    }
+
+    private struct LossyAlarm: Decodable {
+        let value: Alarm?
+
+        init(from decoder: Decoder) throws {
+            value = try? Alarm(from: decoder)
+        }
     }
 
     static func save(_ alarms: [Alarm], to defaults: UserDefaults = .standard) {

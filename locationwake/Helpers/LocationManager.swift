@@ -17,6 +17,12 @@ enum AlarmTriggerBlockReason: Equatable {
     case savedTooRecently
 }
 
+enum AlarmProximityAction: Equatable {
+    case none
+    case trigger
+    case resetAfterExit
+}
+
 struct AlarmTriggerPolicy {
     static let saveSkipInterval: TimeInterval = 10
 
@@ -52,6 +58,23 @@ struct AlarmTriggerPolicy {
         }
         return nil
     }
+
+    static func proximityAction(
+        for alarm: Alarm,
+        distance: CLLocationDistance,
+        radius: CLLocationDistance,
+        weekday: Int
+    ) -> AlarmProximityAction {
+        if alarm.hasTriggeredUntilExit {
+            return distance > radius ? .resetAfterExit : .none
+        }
+        guard !alarm.hasTriggered,
+              blockReason(for: alarm, weekday: weekday) == nil,
+              distance <= radius else {
+            return .none
+        }
+        return .trigger
+    }
 }
 
 class LocationManager: NSObject, CLLocationManagerDelegate {
@@ -63,6 +86,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     private var monitoringTimer: Timer?
     private var vibrationTimer: Timer?
     private var authorizationCheckTimer: Timer?
+    private var hasRestoredSavedAlarms = false
 
     var alarms: [Alarm] = [] // アラームリスト
 
@@ -82,7 +106,9 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
     func restoreSavedAlarms(reason: String) {
         alarms = AlarmStore.load()
+        hasRestoredSavedAlarms = true
         print("ℹ️ event=alarmsRestored reason=\(reason) count=\(alarms.count)")
+        updateContinuousLocationMonitoring(for: locationManager.authorizationStatus)
         startMonitoring(alarms: alarms)
     }
 
@@ -416,63 +442,35 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
         print("📍 現在位置: 緯度 \(location.coordinate.latitude), 経度 \(location.coordinate.longitude)")
-        // 位置更新時、すでに監視領域内であれば即時トリガー
+        // 全方式のアラームを再評価し、領域内で対象曜日へ変わった場合や
+        // ジオフェンスの退出イベントを失った場合にも状態を回復する。
         for alarm in alarms {
             print("🔎 チェック中: \(alarm.name) / hasTriggered: \(alarm.hasTriggered)")
 
-            // チェック: アラームが無効ならスキップ
-            if !alarm.isAlarmEnabled {
-                print("🚫 \(alarm.name) は isAlarmEnabled が false のためスキップ")
-                continue
-            }
+            guard let destination = alarm.location,
+                  let radius = alarm.geofenceRadius else { continue }
+            let current = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+            let target = CLLocation(latitude: destination.latitude, longitude: destination.longitude)
+            let distance = current.distance(from: target)
+            let today = AlarmTriggerPolicy.weekdayIndex(for: Date())
 
-            // チェック: 繰り返し曜日に該当しない場合はスキップ
-            let today = Calendar.current.component(.weekday, from: Date()) - 1
-            if let repeatDays = alarm.repeatWeekdays, !repeatDays.isEmpty, !repeatDays.contains(today) {
-                print("🚫 \(alarm.name) は本日(\(today)) は繰り返し対象外のためスキップ")
-                continue
-            }
-
-            // 長距離方式では、位置更新で範囲外への退出を検出して再発火可能に戻す。
-            if !usesGeofence(for: alarm),
-               alarm.hasTriggeredUntilExit,
-               let destination = alarm.location,
-               let radius = alarm.geofenceRadius {
-                let current = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
-                let target = CLLocation(latitude: destination.latitude, longitude: destination.longitude)
-                if current.distance(from: target) > radius,
-                   let index = alarms.firstIndex(where: { $0.id == alarm.id }) {
+            switch AlarmTriggerPolicy.proximityAction(
+                for: alarm,
+                distance: distance,
+                radius: radius,
+                weekday: today
+            ) {
+            case .resetAfterExit:
+                if let index = alarms.firstIndex(where: { $0.id == alarm.id }) {
                     alarms[index].hasTriggered = false
                     alarms[index].hasTriggeredUntilExit = false
                     saveAlarms()
-                    print("ℹ️ event=longDistanceAlarmReset alarmID=\(alarm.id)")
+                    print("ℹ️ event=alarmResetAfterExit alarmID=\(alarm.id)")
                 }
+            case .none:
                 continue
-            }
-
-            // 発火後、ジオフェンス方式は退出イベントまで再発火しない。
-            if alarm.hasTriggeredUntilExit {
-                print("🚫 \(alarm.name) は hasTriggeredUntilExit = true のためスキップ")
-                continue
-            }
-
-            guard !usesGeofence(for: alarm),
-                  let loc = alarm.location,
-                  let radius = alarm.geofenceRadius else { continue }
-            let userLoc = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
-            let alarmLoc = CLLocation(latitude: loc.latitude, longitude: loc.longitude)
-            let distance = userLoc.distance(from: alarmLoc)
-            print("📏 \(alarm.name) までの距離: \(Int(distance)) m")
-            let skipTimestampKey = "SkipTriggerAt_\(alarm.id)"
-            if let savedDate = UserDefaults.standard.object(forKey: skipTimestampKey) as? Date {
-                let interval = Date().timeIntervalSince(savedDate)
-                if interval < 10 {
-                    print("⏳ didUpdateLocation: 保存直後 \(interval) 秒 → トリガー抑制")
-                    continue
-                }
-            }
-
-            if distance <= radius, !alarm.hasTriggered {
+            case .trigger:
+                print("📏 \(alarm.name) までの距離: \(Int(distance)) m")
                 // 保存直後スキップ条件（メモリ）
                 if skipAlarmIDs.contains(alarm.id) {
                     print("🚫 didUpdateLocation: \(alarm.name) はメモリ上でスキップ")
@@ -515,14 +513,33 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         switch status {
         case .authorizedAlways:
             print("✅ locationManagerDidChangeAuthorization: 実際に「常に許可」が付与されました")
+            updateContinuousLocationMonitoring(for: status)
+            if hasRestoredSavedAlarms {
+                startMonitoring(alarms: alarms)
+            }
         case .authorizedWhenInUse:
+            updateContinuousLocationMonitoring(for: status)
             print("⚠️ locationManagerDidChangeAuthorization: 「使用中のみ許可」です → 「常に許可」が必要です。設定アプリで変更してください")
         case .denied, .restricted:
+            updateContinuousLocationMonitoring(for: status)
             print("❌ locationManagerDidChangeAuthorization: 位置情報の使用が制限または拒否されています。設定アプリで確認してください")
         case .notDetermined:
+            updateContinuousLocationMonitoring(for: status)
             print("⏳ locationManagerDidChangeAuthorization: 位置情報の許可がまだ決定されていません")
         @unknown default:
             print("⚠️ locationManagerDidChangeAuthorization: 未知の認可ステータス")
+        }
+    }
+
+    static func shouldRunContinuousLocationMonitoring(for status: CLAuthorizationStatus) -> Bool {
+        status == .authorizedAlways
+    }
+
+    private func updateContinuousLocationMonitoring(for status: CLAuthorizationStatus) {
+        if Self.shouldRunContinuousLocationMonitoring(for: status) {
+            locationManager.startUpdatingLocation()
+        } else {
+            locationManager.stopUpdatingLocation()
         }
     }
     // 追加: 定期的に認可ステータスをチェックするメソッド
