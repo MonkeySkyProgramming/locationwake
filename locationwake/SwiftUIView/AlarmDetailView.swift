@@ -258,7 +258,7 @@ struct AlarmDetailView: View {
 
     private var weekdaySummary: String {
         let names = ["日", "月", "火", "水", "木", "金", "土"]
-        guard !repeatWeekdays.isEmpty else { return "毎日" }
+        guard !repeatWeekdays.isEmpty else { return "繰り返さない" }
         return repeatWeekdays.sorted().map { names[$0] }.joined(separator: "・")
     }
 
@@ -481,7 +481,13 @@ struct SoundSelectionView: View {
 struct RepeatWeekdaySelectionView: View {
     @Binding var selectedWeekdays: Set<Int>
     let days = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"]
+    let shortDays = ["日", "月", "火", "水", "木", "金", "土"]
     @Environment(\.dismiss) private var dismiss
+
+    private var selectedDaySummary: String {
+        let selected = selectedWeekdays.sorted().map { shortDays[$0] }
+        return selected.isEmpty ? "繰り返さない" : selected.joined(separator: "・") + "曜日"
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -491,45 +497,88 @@ struct RepeatWeekdaySelectionView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    AppSectionTitle(title: "繰り返す曜日")
+                    AppSectionTitle(title: "繰り返し")
                         .padding(.top, 34)
                         .padding(.bottom, 8)
                     AppCard {
-                        VStack(spacing: 0) {
-                            ForEach(0..<days.count, id: \.self) { index in
-                                Button {
-                                    if selectedWeekdays.contains(index) {
-                                        selectedWeekdays.remove(index)
-                                    } else {
-                                        selectedWeekdays.insert(index)
-                                    }
-                                } label: {
-                                    HStack {
-                                        Text(days[index])
-                                            .font(.system(size: 18))
-                                            .foregroundStyle(.primary)
-                                        Spacer()
-                                        if selectedWeekdays.contains(index) {
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 19, weight: .semibold))
-                                                .foregroundStyle(AppDesign.tint)
-                                        }
-                                    }
-                                    .padding(.horizontal, 16)
-                                    .frame(height: 57)
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
+                        VStack(alignment: .leading, spacing: 18) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "repeat")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(AppDesign.tint)
+                                    .frame(width: 34, height: 34)
+                                    .background(AppDesign.tint.opacity(0.12), in: Circle())
 
-                                if index < days.count - 1 {
-                                    Divider().padding(.leading, 12)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("繰り返し")
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .foregroundStyle(.primary)
+                                    Text(selectedDaySummary)
+                                        .font(.system(size: 15))
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                if selectedWeekdays.isEmpty {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 22, weight: .semibold))
+                                        .foregroundStyle(AppDesign.tint)
+                                        .accessibilityLabel("繰り返さない")
+                                } else {
+                                    Button("解除") {
+                                        selectedWeekdays.removeAll()
+                                    }
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(AppDesign.tint)
+                                    .buttonStyle(.plain)
+                                    .accessibilityHint("曜日の繰り返しを解除します")
+                                }
+                            }
+
+                            Divider()
+
+                            Text("曜日を選択")
+                                .font(.system(size: 15))
+                                .foregroundStyle(.secondary)
+
+                            HStack(spacing: 0) {
+                                ForEach(0..<days.count, id: \.self) { index in
+                                    Button {
+                                        if selectedWeekdays.contains(index) {
+                                            selectedWeekdays.remove(index)
+                                        } else {
+                                            selectedWeekdays.insert(index)
+                                        }
+                                    } label: {
+                                        Text(shortDays[index])
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .frame(width: 40, height: 40)
+                                            .foregroundStyle(selectedWeekdays.contains(index) ? .white : .primary)
+                                            .background(
+                                                selectedWeekdays.contains(index) ? AppDesign.tint : Color(uiColor: .tertiarySystemFill),
+                                                in: Circle()
+                                            )
+                                            .overlay {
+                                                Circle()
+                                                    .stroke(
+                                                        selectedWeekdays.contains(index) ? Color.clear : Color.secondary.opacity(0.12),
+                                                        lineWidth: 1
+                                                    )
+                                            }
+                                    }
+                                    .buttonStyle(.plain)
+                                    .frame(maxWidth: .infinity)
+                                    .accessibilityLabel(days[index])
+                                    .accessibilityValue(selectedWeekdays.contains(index) ? "選択済み" : "未選択")
                                 }
                             }
                         }
+                        .padding(16)
                     }
                     .padding(.horizontal, 9)
 
-                    Text("選択した曜日に到着をお知らせします。")
+                    Text(selectedWeekdays.isEmpty ? "繰り返さない場合は、次回の到着時に一度だけお知らせします。" : "塗りつぶされた曜日に、到着をお知らせします。")
                         .font(.system(size: 15))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 24)

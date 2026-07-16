@@ -367,7 +367,7 @@ private struct AlarmListRow: View {
 
     private var detail: String {
         let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
-        let repeatText = (alarm.repeatWeekdays?.isEmpty ?? true) ? "毎日" : alarm.repeatWeekdays!.sorted().map { weekdays[$0] }.joined(separator: "・")
+        let repeatText = (alarm.repeatWeekdays?.isEmpty ?? true) ? "繰り返さない" : alarm.repeatWeekdays!.sorted().map { weekdays[$0] }.joined(separator: "・")
         let soundText = alarm.isSoundEnabled ? "音" : "無音"
         let vibrationText = alarm.isVibrationEnabled ? "とバイブ" : ""
         return "半径 \(Int(alarm.geofenceRadius ?? Alarm.defaultGeofenceRadius)) m・\(repeatText)・\(soundText)\(vibrationText)"

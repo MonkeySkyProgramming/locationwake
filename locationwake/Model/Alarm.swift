@@ -13,6 +13,7 @@ struct Alarm: Codable, Identifiable, Equatable {
 
     var id: String = UUID().uuidString
     var name: String
+    // 空配列またはnilは「繰り返さない」（次回の到着時に一度だけ通知）を表す。
     var repeatWeekdays: [Int]? // 0:日曜〜6:土曜、繰り返し曜日
     var sound: String
     var isAlarmEnabled: Bool // アラーム自体のオンオフ
@@ -79,7 +80,7 @@ struct Alarm: Codable, Identifiable, Equatable {
     init(
         id: String = UUID().uuidString,
         name: String,
-        repeatWeekdays: [Int]? = nil,
+        repeatWeekdays: [Int]? = [],
         sound: String,
         isAlarmEnabled: Bool,
         isSoundEnabled: Bool,

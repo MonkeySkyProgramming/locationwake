@@ -5,6 +5,18 @@ import UserNotifications
 
 final class locationwakeTests: XCTestCase {
 
+    func testNewAlarmDefaultsToNoRepeat() {
+        let alarm = Alarm(
+            name: "One time destination",
+            sound: "modan",
+            isAlarmEnabled: true,
+            isSoundEnabled: true,
+            isVibrationEnabled: true
+        )
+
+        XCTAssertEqual(alarm.repeatWeekdays, [])
+    }
+
     func testAlarmDecodesLegacyPayloadWithGeneratedAndDefaultFields() throws {
         let json = """
         {
