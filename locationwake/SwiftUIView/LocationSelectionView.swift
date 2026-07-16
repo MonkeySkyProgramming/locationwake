@@ -29,12 +29,15 @@ struct LocationSelectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if matchingItems.isEmpty {
-                AppNavigationHeader(title: "目的地を検索", showsBackButton: true) {
+            AppNavigationHeader(title: "目的地を検索", showsBackButton: true) {
+                dismiss()
+            } trailing: {
+                Button("キャンセル") {
                     dismiss()
                 }
-            } else {
-                searchResultsHeader
+                .buttonStyle(.plain)
+                .font(.system(size: 17))
+                .foregroundStyle(AppDesign.tint)
             }
 
             searchField
@@ -56,39 +59,6 @@ struct LocationSelectionView: View {
         .tint(AppDesign.tint)
         .background(AppDesign.background.ignoresSafeArea())
         .navigationBarBackButtonHidden(true)
-    }
-
-    private var searchResultsHeader: some View {
-        HStack(spacing: 0) {
-            Button {
-                dismiss()
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 19, weight: .semibold))
-                    Text("アラーム")
-                        .font(.system(size: 17))
-                }
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(AppDesign.tint)
-            .frame(width: 102, height: 52, alignment: .leading)
-
-            Text("起きなはれ")
-                .font(.system(size: 20, weight: .bold))
-                .frame(maxWidth: .infinity)
-
-            Button("キャンセル") {
-                dismiss()
-            }
-            .buttonStyle(.plain)
-            .font(.system(size: 17))
-            .foregroundStyle(AppDesign.tint)
-            .frame(width: 102, height: 52, alignment: .trailing)
-        }
-        .frame(height: 58)
-        .padding(.horizontal, 12)
-        .background(AppDesign.background)
     }
 
     private var searchField: some View {

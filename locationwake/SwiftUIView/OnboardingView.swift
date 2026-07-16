@@ -8,16 +8,15 @@ struct OnboardingView: View {
         let message: String
         let symbol: String
         let screenshotAsset: String?
-        let screenshotAlignment: Alignment
         var id: String { title }
     }
 
     private let pages = [
-        Page(title: "目的地で起きる。", message: "設定した場所に近づくと、アラームでお知らせします。", symbol: "location.circle.fill", screenshotAsset: "onboarding1", screenshotAlignment: .top),
-        Page(title: "目的地を検索。", message: "駅名や場所を検索して、目的地を選びます。", symbol: "magnifyingglass", screenshotAsset: "onboarding2", screenshotAlignment: .bottom),
-        Page(title: "到着範囲を決める。", message: "地図を見ながら、到着を知らせる範囲を設定できます。", symbol: "scope", screenshotAsset: "onboarding3", screenshotAlignment: .center),
-        Page(title: "いつでも見守る。", message: "バックグラウンドで到着を検知するため、位置情報を「常に許可」にしてください。", symbol: "location.fill.viewfinder", screenshotAsset: nil, screenshotAlignment: .center),
-        Page(title: "到着をお知らせ。", message: "目的地に近づくと、通知・音・バイブレーションでお知らせします。", symbol: "bell.badge.fill", screenshotAsset: nil, screenshotAlignment: .center)
+        Page(title: "目的地で起きる。", message: "設定した場所に近づくと、アラームでお知らせします。", symbol: "location.circle.fill", screenshotAsset: "onboarding1"),
+        Page(title: "目的地を検索。", message: "駅名や場所を検索して、目的地を選びます。", symbol: "magnifyingglass", screenshotAsset: "onboarding2"),
+        Page(title: "到着範囲を決める。", message: "地図を見ながら、到着を知らせる範囲を設定できます。", symbol: "scope", screenshotAsset: "onboarding3"),
+        Page(title: "いつでも見守る。", message: "バックグラウンドで到着を検知するため、位置情報を「常に許可」にしてください。", symbol: "location.fill.viewfinder", screenshotAsset: nil),
+        Page(title: "到着をお知らせ。", message: "目的地に近づくと、通知・音・バイブレーションでお知らせします。", symbol: "bell.badge.fill", screenshotAsset: nil)
     ]
 
     @Environment(\.dismiss) private var dismiss
@@ -97,13 +96,13 @@ struct OnboardingView: View {
     @ViewBuilder
     private func pageContent(_ page: Page) -> some View {
         if let screenshotAsset = page.screenshotAsset {
-            VStack(spacing: 20) {
-                Spacer(minLength: 24)
+            VStack(spacing: 16) {
+                Spacer(minLength: 12)
 
-                OnboardingScreenshot(assetName: screenshotAsset, alignment: page.screenshotAlignment)
+                OnboardingScreenshot(assetName: screenshotAsset)
 
                 Text(page.title)
-                    .font(.largeTitle.bold())
+                    .font(.title.bold())
                     .multilineTextAlignment(.center)
 
                 Text(page.message)
@@ -112,7 +111,7 @@ struct OnboardingView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
 
-                Spacer(minLength: 24)
+                Spacer(minLength: 12)
             }
         } else {
             VStack(spacing: 24) {
@@ -145,14 +144,29 @@ struct OnboardingView: View {
 
 private struct OnboardingScreenshot: View {
     let assetName: String
-    let alignment: Alignment
+
+    private let screenshotWidth: CGFloat = 208
+    private let originalSize = CGSize(width: 368, height: 800)
+    private let statusBarCrop: CGFloat = 64
+
+    private var screenshotHeight: CGFloat {
+        screenshotWidth * (originalSize.height - statusBarCrop) / originalSize.width
+    }
 
     var body: some View {
-        Image(assetName)
-            .resizable()
-            .scaledToFill()
-            .frame(maxWidth: .infinity)
-            .frame(height: 264, alignment: alignment)
+        GeometryReader { proxy in
+            let scale = proxy.size.width / originalSize.width
+
+            Image(assetName)
+                .resizable()
+                .frame(
+                    width: proxy.size.width,
+                    height: originalSize.height * scale,
+                    alignment: .top
+                )
+                .offset(y: -statusBarCrop * scale)
+        }
+            .frame(width: screenshotWidth, height: screenshotHeight)
             .clipped()
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay {
