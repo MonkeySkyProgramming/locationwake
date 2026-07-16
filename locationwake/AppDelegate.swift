@@ -11,12 +11,22 @@ enum AppRuntime {
         ProcessInfo.processInfo.arguments.contains("--ui-testing")
     }
 
+    /// Simulator screenshots use the real UI while omitting ads, permission prompts,
+    /// and location monitoring. Pass `--screenshot-mode` as a launch argument.
+    static var isScreenshotMode: Bool {
+        ProcessInfo.processInfo.arguments.contains("--screenshot-mode")
+    }
+
     static var isUnitTesting: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
     static var shouldSuppressExternalSideEffects: Bool {
-        isUnitTesting || isUITesting
+        isUnitTesting || isUITesting || isScreenshotMode
+    }
+
+    static var shouldShowBannerAds: Bool {
+        !isScreenshotMode && !isUITesting && !isUnitTesting
     }
 }
 

@@ -9,20 +9,25 @@ struct BaseContainerView<Content: View>: View {
     }
 
     var body: some View {
-        content
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                VStack(spacing: 0) {
-                    Color.secondary.opacity(0.16)
-                        .frame(height: 1) // Top margin above ad
+        if AppRuntime.shouldShowBannerAds {
+            content
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    VStack(spacing: 0) {
+                        Color.secondary.opacity(0.16)
+                            .frame(height: 1) // Top margin above ad
 
-                    AdBannerView()
-                        .frame(height: 50)
-                        .background(.bar)
+                        AdBannerView()
+                            .frame(height: 50)
+                            .background(.bar)
 
-                    Color.clear.frame(height: 8)
+                        Color.clear.frame(height: 8)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
-            }
-            .background(Color(uiColor: .systemGroupedBackground))
+                .background(Color(uiColor: .systemGroupedBackground))
+        } else {
+            content
+                .background(Color(uiColor: .systemGroupedBackground))
+        }
     }
 }

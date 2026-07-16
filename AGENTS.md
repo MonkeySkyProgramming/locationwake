@@ -20,10 +20,11 @@ explicitly lacks support for the requested action.
   authorized that specific change.
 - Prefer keychain authentication through `asc auth login`; never place
   credentials, private keys, or their contents in repository files.
-- Before uploading a build with `asc`, read the Obsidian note
+- Before any App Store Connect operation, read the Obsidian note
   `codex/ASCでiOSビルドをアップロードする方法.md` using the Obsidian CLI and
-  follow its authentication, build-number, archive, export, upload, and
-  verification steps.
+  follow the applicable steps. In particular, follow its authentication,
+  build-number, archive, export, upload, and verification procedure before
+  uploading a build.
 
 ## Obsidian work
 
