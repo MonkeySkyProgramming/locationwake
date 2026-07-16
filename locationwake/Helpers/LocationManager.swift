@@ -390,7 +390,9 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             soundPlayer.playSound(named: soundName)
         }
         if alarm.isVibrationEnabled {
-            HapticManager.triggerRepeated(.impactMedium, count: Int.max, interval: 1.0)
+            // UI用のImpact Feedbackではなく、バックグラウンドでも発火可能な
+            // システム振動を使用する。音声再生中はaudio background modeが反復を維持する。
+            HapticManager.triggerRepeated(.systemVibrate, count: Int.max, interval: 1.0)
         }
 
         // アラームが作動したので isAlarmEnabled をオフにする

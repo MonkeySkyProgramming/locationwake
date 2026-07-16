@@ -7,6 +7,13 @@ final class SoundPlayer: NSObject, AVAudioPlayerDelegate {
     var player: AVAudioPlayer?
     private var stopTimer: Timer?
     private var isPlaybackRequested = false
+
+    // バックグラウンドでは、他アプリを完全に中断する非混在セッションを開始できない。
+    // 音楽はダッキングし、Podcastなどの音声コンテンツは一時停止して共存する。
+    static let alarmCategoryOptions: AVAudioSession.CategoryOptions = [
+        .duckOthers,
+        .interruptSpokenAudioAndMixWithOthers
+    ]
     
     // プライベートイニシャライザで外部からのインスタンス化を防ぐ
     private override init() {
@@ -37,9 +44,11 @@ final class SoundPlayer: NSObject, AVAudioPlayerDelegate {
         }
 
         do {
-            // 長時間のアラームでは他アプリの音声を一時停止し、停止後に再開可能であることを通知する。
-            // duckOthers は短時間利用向けのため、ループ再生するアラームでは使用しない。
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setCategory(
+                .playback,
+                mode: .default,
+                options: Self.alarmCategoryOptions
+            )
             try AVAudioSession.sharedInstance().setActive(true)
             let newPlayer = try AVAudioPlayer(contentsOf: url)
             newPlayer.delegate = self

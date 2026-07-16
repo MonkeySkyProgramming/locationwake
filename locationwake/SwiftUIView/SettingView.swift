@@ -9,6 +9,7 @@ struct SettingView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var locationAuthorization = CLLocationManager().authorizationStatus
     @State private var notificationAuthorization: UNAuthorizationStatus = .notDetermined
+    @State private var notificationSoundSetting: UNNotificationSetting = .notSupported
 
     var body: some View {
         VStack(spacing: 0) {
@@ -111,6 +112,21 @@ struct SettingView: View {
                                     }
                                     .buttonStyle(.plain)
                                 }
+
+                                if notificationAllowed && !notificationSoundAllowed {
+                                    if locationAuthorization != .authorizedAlways {
+                                        Divider().padding(.leading, 58)
+                                    }
+                                    Button(action: openAppSettings) {
+                                        SettingsActionRow(
+                                            icon: "speaker.slash.fill",
+                                            iconColor: .orange,
+                                            title: "通知のサウンドをオンにしてください",
+                                            trailing: "設定を開く"
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
                             }
                         }
                     }
@@ -190,6 +206,7 @@ struct SettingView: View {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             DispatchQueue.main.async {
                 notificationAuthorization = settings.authorizationStatus
+                notificationSoundSetting = settings.soundSetting
             }
         }
     }
@@ -199,7 +216,28 @@ struct SettingView: View {
     }
 
     private var permissionsComplete: Bool {
-        locationAuthorization == .authorizedAlways && notificationAllowed
+        Self.areArrivalPermissionsComplete(
+            locationAuthorization: locationAuthorization,
+            notificationAuthorization: notificationAuthorization,
+            notificationSoundSetting: notificationSoundSetting
+        )
+    }
+
+    private var notificationSoundAllowed: Bool {
+        notificationSoundSetting == .enabled
+    }
+
+    static func areArrivalPermissionsComplete(
+        locationAuthorization: CLAuthorizationStatus,
+        notificationAuthorization: UNAuthorizationStatus,
+        notificationSoundSetting: UNNotificationSetting
+    ) -> Bool {
+        let notificationsAllowed = notificationAuthorization == .authorized
+            || notificationAuthorization == .provisional
+            || notificationAuthorization == .ephemeral
+        return locationAuthorization == .authorizedAlways
+            && notificationsAllowed
+            && notificationSoundSetting == .enabled
     }
 
     private func openAppSettings() {

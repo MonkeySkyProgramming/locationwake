@@ -561,6 +561,26 @@ final class locationwakeTests: XCTestCase {
         XCTAssertEqual(HapticManager.normalizedRepeatCount(-1), 0)
     }
 
+    func testAlarmAudioSessionMixesAndDucksOtherAudio() {
+        let options = SoundPlayer.alarmCategoryOptions
+        XCTAssertTrue(options.contains(.mixWithOthers))
+        XCTAssertTrue(options.contains(.duckOthers))
+        XCTAssertTrue(options.contains(.interruptSpokenAudioAndMixWithOthers))
+    }
+
+    func testArrivalPermissionsRequireNotificationSound() {
+        XCTAssertTrue(SettingView.areArrivalPermissionsComplete(
+            locationAuthorization: .authorizedAlways,
+            notificationAuthorization: .authorized,
+            notificationSoundSetting: .enabled
+        ))
+        XCTAssertFalse(SettingView.areArrivalPermissionsComplete(
+            locationAuthorization: .authorizedAlways,
+            notificationAuthorization: .authorized,
+            notificationSoundSetting: .disabled
+        ))
+    }
+
     func testAppRuntimeSuppressesExternalSideEffectsInUnitTests() {
         XCTAssertTrue(AppRuntime.shouldSuppressExternalSideEffects)
     }

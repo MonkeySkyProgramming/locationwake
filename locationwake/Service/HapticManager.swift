@@ -51,6 +51,13 @@ struct HapticManager {
         if let remaining, remaining <= 0 { return }
         let safeInterval = max(interval, 0.2)
 
+        // 位置イベントで与えられるバックグラウンド実行時間を逃さないよう、
+        // 最初の振動はTimerを待たずに直ちに発生させる。
+        trigger(type)
+        if let currentRemaining = remaining {
+            remaining = currentRemaining - 1
+        }
+
         func scheduleNext() {
             if let remaining, remaining <= 0 {
                 activeTimer = nil
