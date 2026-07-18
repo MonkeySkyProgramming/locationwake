@@ -179,6 +179,12 @@ struct AlarmDetailView: View {
                     }
                     .padding(.horizontal, AppDesign.horizontalPadding)
 
+                    Label("到着後は、通知をタップしてアプリを開くとアラームを停止できます。", systemImage: "info.circle")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 10)
+
                     AppSectionTitle(title: "繰り返し")
                         .padding(.top, 22)
                         .padding(.bottom, 8)

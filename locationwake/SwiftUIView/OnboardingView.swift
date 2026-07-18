@@ -16,7 +16,7 @@ struct OnboardingView: View {
         Page(title: "目的地を検索。", message: "駅名や場所を検索して、目的地を選びます。", symbol: "magnifyingglass", screenshotAsset: "onboarding2"),
         Page(title: "到着範囲を決める。", message: "地図を見ながら、到着を知らせる範囲を設定できます。", symbol: "scope", screenshotAsset: "onboarding3"),
         Page(title: "いつでも見守る。", message: "バックグラウンドで到着を検知するため、位置情報を「常に許可」にしてください。", symbol: "location.fill.viewfinder", screenshotAsset: nil),
-        Page(title: "到着をお知らせ。", message: "目的地に近づくと、通知・音・バイブレーションでお知らせします。", symbol: "bell.badge.fill", screenshotAsset: nil)
+        Page(title: "到着をお知らせ。", message: "目的地に近づくと、通知・音・バイブレーションでお知らせします。通知をタップしてアプリを開くと、アラームを停止できます。", symbol: "bell.badge.fill", screenshotAsset: nil)
     ]
 
     @Environment(\.dismiss) private var dismiss

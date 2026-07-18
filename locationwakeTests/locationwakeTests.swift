@@ -250,7 +250,7 @@ final class locationwakeTests: XCTestCase {
 
         XCTAssertEqual(request.identifier, "arrival")
         XCTAssertEqual(request.content.title, "アラーム")
-        XCTAssertEqual(request.content.body, "Destinationに到達しました！")
+        XCTAssertEqual(request.content.body, "Destinationに到達しました！アプリを起動してアラームを止めてください。")
         XCTAssertNotNil(request.content.sound)
         XCTAssertEqual(trigger.timeInterval, 1)
         XCTAssertFalse(trigger.repeats)

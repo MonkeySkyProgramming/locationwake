@@ -62,6 +62,7 @@ class NavigationModel: ObservableObject {
 struct AlarmListSwiftUIView: View {
     @ObservedObject var viewModel = AlarmListViewModel()
     @State private var showHelp = false
+    @State private var showAlarmStoppedScreen = false
     @State private var hasSettingsIssue = false
     @AppStorage("hasSeenOnboarding") var hasSeenOnboarding: Bool = false
     @StateObject private var navigationModel = NavigationModel()
@@ -230,6 +231,9 @@ struct AlarmListSwiftUIView: View {
             .sheet(isPresented: $showHelp) {
                 OnboardingView()
             }
+            .sheet(isPresented: $showAlarmStoppedScreen) {
+                AlarmStoppedView()
+            }
             .onAppear {
                 viewModel.loadAlarms()
                 refreshSettingsIssue()
@@ -246,9 +250,14 @@ struct AlarmListSwiftUIView: View {
                     showHelp = true
                     hasSeenOnboarding = true
                 }
+
+                presentAlarmStoppedScreenIfNeeded()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowHelpOverlay"))) { _ in
                 showHelp = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .alarmStopRequested)) { _ in
+                presentAlarmStoppedScreenIfNeeded()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 refreshSettingsIssue()
@@ -279,6 +288,40 @@ struct AlarmListSwiftUIView: View {
                 hasSettingsIssue = locationNeedsAttention || !notificationIsAllowed
             }
         }
+    }
+
+    private func presentAlarmStoppedScreenIfNeeded() {
+        guard UserDefaults.standard.bool(forKey: "ShouldShowAlarmStoppedScreen") else { return }
+        UserDefaults.standard.set(false, forKey: "ShouldShowAlarmStoppedScreen")
+        showAlarmStoppedScreen = true
+    }
+}
+
+private struct AlarmStoppedView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "bell.slash.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(AppDesign.tint)
+                .accessibilityHidden(true)
+
+            Text("アラームを停止しました")
+                .font(.title.bold())
+
+            Text("アプリを起動したため、アラーム音とバイブレーションを停止しました。")
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+
+            Button("閉じる") {
+                dismiss()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(AppDesign.tint)
+        }
+        .padding(32)
+        .presentationDetents([.medium])
     }
 }
 

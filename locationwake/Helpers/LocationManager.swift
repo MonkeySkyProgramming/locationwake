@@ -608,4 +608,5 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
 extension Notification.Name {
     static let locationAuthorizationDidChange = Notification.Name("LocationAuthorizationDidChange")
+    static let alarmStopRequested = Notification.Name("AlarmStopRequested")
 }

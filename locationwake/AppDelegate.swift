@@ -78,6 +78,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         completionHandler([.banner, .list])
     }
 
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else {
+            completionHandler()
+            return
+        }
+
+        // 通知からアプリを開いた場合も、フォアグラウンド遷移を待たず確実に停止する。
+        SoundPlayer.shared.stopSound()
+        HapticManager.stop()
+        UserDefaults.standard.set(true, forKey: "ShouldShowAlarmStoppedScreen")
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .alarmStopRequested, object: nil)
+        }
+        completionHandler()
+    }
+
     func applicationWillResignActive(_ application: UIApplication) {}
 
     func applicationDidEnterBackground(_ application: UIApplication) {}
