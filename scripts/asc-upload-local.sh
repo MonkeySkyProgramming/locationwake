@@ -14,6 +14,7 @@ EXISTING_IPA=""
 ARCHIVE_PATH=".asc/artifacts/locationwake.xcarchive"
 IPA_PATH=".asc/artifacts/locationwake.ipa"
 VERIFY_TIMEOUT="10m"
+BUILD_NUMBER=""
 DRY_RUN=false
 CONFIRM_UPLOAD=false
 
@@ -34,6 +35,7 @@ Options:
   --archive-path PATH         Archive output path
   --ipa-path PATH             IPA output path
   --verify-timeout DURATION   Upload failure watch window (default: 10m)
+  --build-number NUMBER       Set the project build number before archiving
   --dry-run                   Prepare upload operations without uploading
   --confirm-upload            Required for a real upload
   -h, --help                  Show this help
@@ -56,6 +58,7 @@ while (($#)); do
     --archive-path) ARCHIVE_PATH="${2:?missing value for --archive-path}"; shift 2 ;;
     --ipa-path) IPA_PATH="${2:?missing value for --ipa-path}"; shift 2 ;;
     --verify-timeout) VERIFY_TIMEOUT="${2:?missing value for --verify-timeout}"; shift 2 ;;
+    --build-number) BUILD_NUMBER="${2:?missing value for --build-number}"; shift 2 ;;
     --dry-run) DRY_RUN=true; shift ;;
     --confirm-upload) CONFIRM_UPLOAD=true; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -101,6 +104,9 @@ printf 'Target app ID: %s\n' "$APP_ID"
 asc_cmd auth status --validate --output json --pretty
 
 if [[ -n "$EXPORT_OPTIONS" ]]; then
+  if [[ -n "$BUILD_NUMBER" ]]; then
+    asc_cmd xcode version edit --build-number "$BUILD_NUMBER" --output json
+  fi
   asc_cmd xcode archive \
     --workspace "$WORKSPACE" \
     --scheme "$SCHEME" \

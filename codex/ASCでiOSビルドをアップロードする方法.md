@@ -115,6 +115,51 @@ scripts/asc-upload-local.sh \
 > [!warning] ローカル LLM からの依頼
 > ローカル LLM には API キー、issuer ID、秘密鍵、JWT を渡さない。LLM はプロファイル名、アプリ ID、成果物パス、`--dry-run`／`--confirm-upload` の指定だけをランナーへ渡す。実アップロードはユーザーが `--confirm-upload` を承認した場合に限る。
 
+## Codex からローカル LLM へ依頼する
+
+Codex からのビルド／アップロードは、次の Ollama ブリッジを入口にする。Ollama（既定モデル `qwen3.5:4b`）が対象、プロファイル、成果物、実行モードを確認し、検証済みの固定ランナーだけが `asc` を実行する。API キー、issuer ID、秘密鍵、JWT は Ollama に送信しない。Ollama が停止していればブリッジが loopback（`127.0.0.1`）で起動する。
+
+```sh
+# ビルド・書き出しを含む安全な確認
+scripts/asc-ollama-upload.sh \
+  --profile "ASC API KEY" \
+  --app-id "6736607524" \
+  --export-options "ExportOptions.plist" \
+  --dry-run
+
+# ユーザーが明示承認した実アップロード
+scripts/asc-ollama-upload.sh \
+  --profile "ASC API KEY" \
+  --app-id "6736607524" \
+  --export-options "ExportOptions.plist" \
+  --confirm-upload
+```
+
+`ASC API KEY(Sales and Reports)` はアップロード権限がないため、アップロード時は `ASC API KEY`（App Manager）または権限を確認した Admin プロファイルを明示する。通常の Codex 操作では `scripts/asc-upload-local.sh` を直接呼ばず、必ず `scripts/asc-ollama-upload.sh` を使う。
+
+### 新しいビルドの標準手順
+
+次の読み取りで番号を決め、その番号をブリッジへ渡す。番号更新、アーカイブ、書き出し、アップロード、`VALID`確認はローカルLLM承認後の固定ランナーが行う。
+
+```sh
+asc --profile "ASC API KEY" builds next-build-number \
+  --app "6736607524" --version "1.53" --platform IOS --output table
+
+scripts/asc-ollama-upload.sh \
+  --profile "ASC API KEY" --app-id "6736607524" \
+  --build-number "NEXT_NUMBER" \
+  --export-options "ExportOptions.plist" \
+  --archive-path ".asc/artifacts/locationwake-buildNEXT_NUMBER.xcarchive" \
+  --ipa-path ".asc/artifacts/locationwake-buildNEXT_NUMBER.ipa" \
+  --confirm-upload
+```
+
+`--confirm-upload` はユーザーが今回のアップロードを明示承認した場合だけ付ける。LLMには資格情報や秘密鍵を渡さない。
+
+## Codexの担当範囲
+
+Codexはユーザーの依頼文を変更せず `--request` でローカルLLMへ転送する。CodexはASCコマンドを直接実行せず、詳細ログも解析しない。ローカルLLMと固定ランナーが処理を完了した後、ブリッジが返す最終JSONの `status`（`success`／`failure`）だけを確認し、その結果をユーザーへ報告する。
+
 ## 2. ビルド番号を決める
 
 現在のマーケティングバージョンと App Store Connect 上の次のビルド番号を確認する。
