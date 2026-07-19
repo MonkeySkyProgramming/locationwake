@@ -211,7 +211,6 @@ struct AlarmListSwiftUIView: View {
                         AdScrollClearance()
                     }
                 }
-                .padding(.top, -44)
                 .background(AppDesign.background)
                 .navigationDestination(for: NavigationRoute.self) { route in
                     switch route {
