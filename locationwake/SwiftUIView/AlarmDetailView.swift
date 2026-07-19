@@ -17,7 +17,6 @@ struct AlarmDetailView: View {
     @State private var isVibrationEnabled: Bool = true
     @State private var isAlarmLimitAlertPresented = false
     @State private var monitoringFailure: String?
-    @Environment(\.dismiss) var dismiss
     @EnvironmentObject var navigationModel: NavigationModel
     @EnvironmentObject var viewModel: AlarmListViewModel
 
@@ -46,14 +45,6 @@ struct AlarmDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AppNavigationHeader(title: "アラームを編集", showsBackButton: true, backAction: {
-                dismiss()
-            }) {
-                AppSaveButton {
-                    saveCurrentAlarm()
-                }
-            }
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     AppSectionTitle(title: "アラーム名")
@@ -215,7 +206,18 @@ struct AlarmDetailView: View {
         .onAppear {
             monitoringFailure = UserDefaults.standard.string(forKey: "MonitoringFailure_\(alarmID)")
         }
-        .navigationBarBackButtonHidden(true)
+        .navigationTitle("アラームを編集")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("保存") {
+                    saveCurrentAlarm()
+                }
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(AppDesign.tint)
+                .accessibilityHint("アラームの変更を保存します")
+            }
+        }
     }
 
     func saveCurrentAlarm() {
@@ -392,14 +394,9 @@ struct SoundSelectionView: View {
     @Binding var selectedSound: String
     let sounds = ["kind", "modan", "siren"]
     @State private var audioPlayer: AVAudioPlayer?
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
-            AppNavigationHeader(title: "サウンド", showsBackButton: true) {
-                dismiss()
-            }
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     AppSectionTitle(title: "アラーム音")
@@ -467,7 +464,8 @@ struct SoundSelectionView: View {
             }
         }
         .background(AppDesign.background)
-        .navigationBarBackButtonHidden(true)
+        .navigationTitle("サウンド")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private func preview(_ sound: String) {
@@ -488,7 +486,6 @@ struct RepeatWeekdaySelectionView: View {
     @Binding var selectedWeekdays: Set<Int>
     let days = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"]
     let shortDays = ["日", "月", "火", "水", "木", "金", "土"]
-    @Environment(\.dismiss) private var dismiss
 
     private var selectedDaySummary: String {
         let selected = selectedWeekdays.sorted().map { shortDays[$0] }
@@ -497,10 +494,6 @@ struct RepeatWeekdaySelectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AppNavigationHeader(title: "繰り返し", showsBackButton: true) {
-                dismiss()
-            }
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     AppSectionTitle(title: "繰り返し")
@@ -595,7 +588,8 @@ struct RepeatWeekdaySelectionView: View {
             }
         }
         .background(AppDesign.background)
-        .navigationBarBackButtonHidden(true)
+        .navigationTitle("繰り返し")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

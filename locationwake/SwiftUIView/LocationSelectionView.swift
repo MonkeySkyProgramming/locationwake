@@ -29,17 +29,6 @@ struct LocationSelectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AppNavigationHeader(title: "目的地を検索", showsBackButton: true) {
-                dismiss()
-            } trailing: {
-                Button("キャンセル") {
-                    dismiss()
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 17))
-                .foregroundStyle(AppDesign.tint)
-            }
-
             searchField
 
             Map(position: $cameraPosition) {
@@ -58,7 +47,16 @@ struct LocationSelectionView: View {
         }
         .tint(AppDesign.tint)
         .background(AppDesign.background.ignoresSafeArea())
-        .navigationBarBackButtonHidden(true)
+        .navigationTitle("目的地を検索")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("キャンセル") {
+                    dismiss()
+                }
+                .foregroundStyle(AppDesign.tint)
+            }
+        }
     }
 
     private var searchField: some View {

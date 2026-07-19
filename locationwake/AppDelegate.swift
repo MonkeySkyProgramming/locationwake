@@ -50,20 +50,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor(named: "NavBarColor")
-        appearance.titleTextAttributes = [.foregroundColor: UIColor(named: "NavBarTintColor") ?? UIColor.white]
-        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor(named: "NavBarTintColor") ?? UIColor.white]
-        appearance.buttonAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor(named: "NavBarTintColor") ?? UIColor.white]
-        appearance.backButtonAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor(named: "NavBarTintColor") ?? UIColor.white]
-        
-        if let backImage = UIImage(systemName: "chevron.backward")?.withTintColor(UIColor(named: "NavBarTintColor") ?? .white, renderingMode: .alwaysOriginal) {
-            appearance.setBackIndicatorImage(backImage, transitionMaskImage: backImage)
-        }
-        
+        appearance.backgroundColor = .systemGroupedBackground
+        appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
+        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
+        appearance.shadowColor = .clear
+        appearance.shadowImage = UIImage()
+
         UINavigationBar.appearance().standardAppearance = appearance
         UINavigationBar.appearance().scrollEdgeAppearance = appearance
         UINavigationBar.appearance().compactAppearance = appearance
-        UINavigationBar.appearance().tintColor = UIColor(named: "NavBarTintColor")
+        UINavigationBar.appearance().tintColor = UIColor(red: 0.0, green: 0.54, blue: 0.60, alpha: 1.0)
 
         return true
     }
