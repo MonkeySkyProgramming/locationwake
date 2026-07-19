@@ -11,174 +11,122 @@ struct SettingView: View {
     @State private var notificationSoundSetting: UNNotificationSetting = .notSupported
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                AppSectionTitle(title: "アラーム")
-                    .padding(.top, 28)
-                    .padding(.bottom, 8)
-                AppCard {
-                    VStack(spacing: 0) {
-                        HStack {
-                            Text("アラーム音を有効にする")
-                                .font(.system(size: 17))
-                            Spacer()
-                            Toggle("アラーム音を有効にする", isOn: $isSoundEnabled)
-                                .labelsHidden()
-                                .tint(AppDesign.tint)
-                        }
-                        .padding(.horizontal, 16)
-                        .frame(height: 58)
-                        Divider().padding(.horizontal, 16)
-                        VStack(spacing: 12) {
-                            HStack {
-                                Text("デフォルトの到着範囲")
-                                    .font(.system(size: 17))
-                                Spacer()
-                                Text("\(Int(defaultRadius)) m")
-                                    .font(.system(size: 17))
-                                    .foregroundStyle(AppDesign.tint)
-                            }
-                            Slider(value: $defaultRadius, in: Alarm.minimumGeofenceRadius...Alarm.maximumGeofenceRadius, step: 50)
-                            HStack {
-                                Text("50 m")
-                                Spacer()
-                                Text("300 m")
-                                Spacer()
-                                Text("1,000 m")
-                            }
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        }
-                        .padding(16)
+        Form {
+            Section("アラーム") {
+                Toggle("アラーム音を有効にする", isOn: $isSoundEnabled)
+                    .tint(AppDesign.tint)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("デフォルトの到着範囲")
+                        Spacer()
+                        Text("\(Int(defaultRadius)) m")
+                            .foregroundStyle(.primary)
                     }
-                }
-                .padding(.horizontal, AppDesign.horizontalPadding)
 
-                AppSectionTitle(title: "到着通知に必要な設定")
-                    .padding(.top, 28)
-                    .padding(.bottom, 8)
-                AppCard {
-                    VStack(spacing: 0) {
-                        if permissionsComplete {
-                            HStack(spacing: 16) {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .frame(width: 36, height: 36)
-                                    .background(AppDesign.tint, in: Circle())
-                                Text("到着通知の設定は完了しています")
-                                    .font(.system(size: 16))
-                                Spacer()
-                            }
-                            .padding(.horizontal, 16)
-                            .frame(height: 64)
-                        } else {
-                            if locationAuthorization != .authorizedAlways {
-                                Button(action: openAppSettings) {
-                                    SettingsActionRow(
-                                        icon: "exclamationmark.triangle.fill",
-                                        iconColor: .orange,
-                                        title: "位置情報を「常に許可」\nにしてください",
-                                        trailing: "設定を開く"
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                            }
+                    Slider(value: $defaultRadius, in: Alarm.minimumGeofenceRadius...Alarm.maximumGeofenceRadius, step: 50)
 
-                            if locationAuthorization != .authorizedAlways && !notificationAllowed {
-                                Divider().padding(.leading, 58)
-                            }
-
-                            if !notificationAllowed {
-                                Button {
-                                    if notificationAuthorization == .notDetermined {
-                                        NotificationManager.shared.requestNotificationPermission()
-                                    } else {
-                                        openAppSettings()
-                                    }
-                                } label: {
-                                    SettingsActionRow(
-                                        icon: "exclamationmark.triangle.fill",
-                                        iconColor: .orange,
-                                        title: "通知を許可してください",
-                                        trailing: notificationAuthorization == .notDetermined ? "通知を許可する" : "設定を開く"
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                            }
-
-                            if notificationAllowed && !notificationSoundAllowed {
-                                if locationAuthorization != .authorizedAlways {
-                                    Divider().padding(.leading, 58)
-                                }
-                                Button(action: openAppSettings) {
-                                    SettingsActionRow(
-                                        icon: "speaker.slash.fill",
-                                        iconColor: .orange,
-                                        title: "通知のサウンドをオンにしてください",
-                                        trailing: "設定を開く"
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
+                    HStack {
+                        Text("\(Int(Alarm.minimumGeofenceRadius).formatted()) m")
+                        Spacer()
+                        Text("\(Int((Alarm.minimumGeofenceRadius + Alarm.maximumGeofenceRadius) / 2).formatted()) m")
+                        Spacer()
+                        Text("\(Int(Alarm.maximumGeofenceRadius).formatted()) m")
                     }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
-                .padding(.horizontal, AppDesign.horizontalPadding)
-
-                AppSectionTitle(title: "テスト")
-                    .padding(.top, 28)
-                    .padding(.bottom, 8)
-                AppCard {
-                    VStack(spacing: 0) {
-                        Button {
-                            SoundPlayer.shared.play(soundName: "modan", forDuration: 5)
-                        } label: {
-                            SettingsActionRow(icon: "speaker.wave.2.fill", title: "アラーム音をテスト")
-                        }
-                        .buttonStyle(.plain)
-                        Divider().padding(.leading, 58)
-                        Button {
-                            HapticManager.triggerRepeated(.systemVibrate, count: 10, interval: 1.0)
-                        } label: {
-                            SettingsActionRow(icon: "iphone.gen3.radiowaves.left.and.right", title: "バイブレーションをテスト")
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, AppDesign.horizontalPadding)
-
-                AppSectionTitle(title: "ヘルプ")
-                    .padding(.top, 28)
-                    .padding(.bottom, 8)
-                AppCard {
-                    Button {
-                        hasSeenOnboarding = false
-                        NotificationCenter.default.post(name: NSNotification.Name("ShowHelpOverlay"), object: nil)
-                    } label: {
-                        SettingsActionRow(icon: "questionmark.circle", title: "使い方をもう一度見る")
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, AppDesign.horizontalPadding)
-
-                AppSectionTitle(title: "サポート")
-                    .padding(.top, 28)
-                    .padding(.bottom, 8)
-                AppCard {
-                    Link(destination: URL(string: "mailto:monkey.video.35@gmail.com")!) {
-                        SettingsActionRow(icon: "ellipsis.message", title: "ご意見・お問い合わせ")
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, AppDesign.horizontalPadding)
-
-                AdScrollClearance()
             }
+
+            Section("到着通知に必要な設定") {
+                if permissionsComplete {
+                    Label {
+                        Text("到着通知の設定は完了しています")
+                            .foregroundStyle(.primary)
+                    } icon: {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(AppDesign.tint)
+                    }
+                } else {
+                    if locationAuthorization != .authorizedAlways {
+                        Button(action: openAppSettings) {
+                            settingsLabel(
+                                "位置情報を「常に許可」にしてください",
+                                systemImage: "exclamationmark.triangle.fill",
+                                iconColor: .orange
+                            )
+                        }
+                    }
+
+                    if !notificationAllowed {
+                        Button {
+                            if notificationAuthorization == .notDetermined {
+                                NotificationManager.shared.requestNotificationPermission()
+                            } else {
+                                openAppSettings()
+                            }
+                        } label: {
+                            settingsLabel(
+                                "通知を許可してください",
+                                systemImage: "exclamationmark.triangle.fill",
+                                iconColor: .orange
+                            )
+                        }
+                    }
+
+                    if notificationAllowed && !notificationSoundAllowed {
+                        Button(action: openAppSettings) {
+                            settingsLabel(
+                                "通知のサウンドをオンにしてください",
+                                systemImage: "speaker.slash.fill",
+                                iconColor: .orange
+                            )
+                        }
+                    }
+                }
+            }
+
+            Section("テスト") {
+                Button {
+                    SoundPlayer.shared.play(soundName: "modan", forDuration: 5)
+                } label: {
+                    settingsLabel("アラーム音をテスト", systemImage: "speaker.wave.2.fill")
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    HapticManager.triggerRepeated(.systemVibrate, count: 10, interval: 1.0)
+                } label: {
+                    settingsLabel("バイブレーションをテスト", systemImage: "iphone.gen3.radiowaves.left.and.right")
+                }
+                .buttonStyle(.plain)
+            }
+
+            Section("ヘルプ") {
+                Button {
+                    hasSeenOnboarding = false
+                    NotificationCenter.default.post(name: NSNotification.Name("ShowHelpOverlay"), object: nil)
+                } label: {
+                    settingsLabel("使い方をもう一度見る", systemImage: "questionmark.circle")
+                }
+                .buttonStyle(.plain)
+            }
+
+            Section("サポート") {
+                Link(destination: URL(string: "mailto:monkey.video.35@gmail.com")!) {
+                    settingsLabel("ご意見・お問い合わせ", systemImage: "ellipsis.message")
+                }
+                .foregroundStyle(.primary)
+            }
+
+            Section {
+                AdListClearance()
+            }
+            .listRowBackground(Color.clear)
         }
         .tint(AppDesign.tint)
+        .scrollContentBackground(.hidden)
         .background(AppDesign.background)
-        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("設定")
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: hasSeenOnboarding) { _, newValue in
@@ -202,6 +150,20 @@ struct SettingView: View {
                 notificationAuthorization = settings.authorizationStatus
                 notificationSoundSetting = settings.soundSetting
             }
+        }
+    }
+
+    private func settingsLabel(
+        _ title: String,
+        systemImage: String,
+        iconColor: Color = AppDesign.tint
+    ) -> some View {
+        Label {
+            Text(title)
+                .foregroundStyle(.primary)
+        } icon: {
+            Image(systemName: systemImage)
+                .foregroundStyle(iconColor)
         }
     }
 
@@ -237,38 +199,5 @@ struct SettingView: View {
     private func openAppSettings() {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)
-    }
-}
-
-private struct SettingsActionRow: View {
-    let icon: String
-    var iconColor: Color = AppDesign.tint
-    let title: String
-    var trailing: String? = nil
-
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .font(.system(size: 21, weight: .medium))
-                .foregroundStyle(iconColor)
-                .frame(width: 28)
-            Text(title)
-                .font(.system(size: 16))
-                .foregroundStyle(.primary)
-                .multilineTextAlignment(.leading)
-            Spacer(minLength: 8)
-            if let trailing {
-                Text(trailing)
-                    .font(.system(size: 15))
-                    .foregroundStyle(AppDesign.tint)
-                    .lineLimit(1)
-            }
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, 16)
-        .frame(minHeight: 58)
-        .contentShape(Rectangle())
     }
 }

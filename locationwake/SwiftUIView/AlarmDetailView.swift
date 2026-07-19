@@ -44,160 +44,21 @@ struct AlarmDetailView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    AppSectionTitle(title: "アラーム名")
-                        .padding(.top, 18)
-                        .padding(.bottom, 8)
-                    AppCard {
-                        HStack(spacing: 14) {
-                            Image(systemName: "tag")
-                                .font(.system(size: 21, weight: .medium))
-                                .foregroundStyle(AppDesign.tint)
-                            TextField("アラーム名を入力", text: $alarmName)
-                                .font(.system(size: 17))
-                            if !alarmName.isEmpty {
-                                Button {
-                                    alarmName = ""
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundStyle(.tertiary)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .frame(height: 56)
-                    }
-                    .padding(.horizontal, AppDesign.horizontalPadding)
-
-                    AppSectionTitle(title: "位置情報")
-                        .padding(.top, 22)
-                        .padding(.bottom, 8)
-                    AppCard {
-                        VStack(spacing: 0) {
-                            Map(position: $cameraPosition) {
-                                MapCircle(center: selectedCoordinate, radius: radius)
-                                    .foregroundStyle(AppDesign.tint.opacity(0.22))
-                                    .stroke(AppDesign.tint, lineWidth: 2)
-                                Marker(alarmName.isEmpty ? "目的地" : alarmName, coordinate: selectedCoordinate)
-                                    .tint(AppDesign.tint)
-                            }
-                            .frame(height: 214)
-                            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
-                            .padding(10)
-                            Divider()
-                            HStack(spacing: 12) {
-                                Image(systemName: "mappin")
-                                    .font(.system(size: 20, weight: .medium))
-                                    .foregroundStyle(AppDesign.tint)
-                                Text(String(format: "%.6f° N, %.6f° E", selectedCoordinate.latitude, selectedCoordinate.longitude))
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .foregroundStyle(.tertiary)
-                            }
-                            .font(.system(size: 15))
-                            .padding(.horizontal, 16)
-                            .frame(height: 52)
-                        }
-                    }
-                    .padding(.horizontal, AppDesign.horizontalPadding)
-                    .onChange(of: radius) { _, newValue in
-                        cameraPosition = .region(MKCoordinateRegion(
-                            center: selectedCoordinate,
-                            latitudinalMeters: newValue * 3.2,
-                            longitudinalMeters: newValue * 3.2
-                        ))
-                    }
-
-                    AppSectionTitle(title: "到着範囲")
-                        .padding(.top, 22)
-                        .padding(.bottom, 8)
-                    AppCard {
-                        VStack(spacing: 4) {
-                            HStack(spacing: 14) {
-                                Image(systemName: "scope")
-                                    .font(.system(size: 23, weight: .medium))
-                                    .foregroundStyle(AppDesign.tint)
-                                Slider(value: $radius, in: Alarm.minimumGeofenceRadius...Alarm.maximumGeofenceRadius, step: 50)
-                                Text("\(Int(radius)) m")
-                                    .font(.system(size: 17))
-                                    .frame(width: 62, alignment: .trailing)
-                            }
-                            HStack {
-                                Text("50")
-                                Spacer()
-                                Text("150")
-                                Spacer()
-                                Text("300")
-                                Spacer()
-                                Text("500")
-                            }
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, 39)
-                            .padding(.trailing, 66)
-                        }
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 90)
-                    }
-                    .padding(.horizontal, AppDesign.horizontalPadding)
-
-                    if let monitoringFailure {
-                        Text(monitoringFailure)
-                            .font(.footnote)
-                            .foregroundStyle(.orange)
-                            .padding(.horizontal, 20)
-                            .padding(.top, 8)
-                    }
-
-                    AppSectionTitle(title: "通知")
-                        .padding(.top, 22)
-                        .padding(.bottom, 8)
-                    AppCard {
-                        VStack(spacing: 0) {
-                            AlarmSettingToggleRow(icon: "bell", title: "音を鳴らす", isOn: $isSoundEnabled)
-                            Divider().padding(.leading, 58)
-                            AlarmSettingToggleRow(icon: "iphone.gen3.radiowaves.left.and.right", title: "バイブレーション", isOn: $isVibrationEnabled)
-                            Divider().padding(.leading, 58)
-                            NavigationLink(destination: SoundSelectionView(selectedSound: $selectedSound)) {
-                                AlarmSettingNavigationRow(icon: "music.note", title: "サウンド", value: selectedSound)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, AppDesign.horizontalPadding)
-
-                    Label("到着後は、通知をタップしてアプリを開くとアラームを停止できます。", systemImage: "info.circle")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 20)
-                        .padding(.top, 10)
-
-                    AppSectionTitle(title: "繰り返し")
-                        .padding(.top, 22)
-                        .padding(.bottom, 8)
-                    AppCard {
-                        NavigationLink(destination: RepeatWeekdaySelectionView(selectedWeekdays: $repeatWeekdays)) {
-                            AlarmSettingNavigationRow(
-                                icon: "arrow.triangle.2.circlepath",
-                                title: "繰り返し",
-                                value: weekdaySummary
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, AppDesign.horizontalPadding)
-
-                    AdScrollClearance()
-                }
+        Form {
+            alarmNameSection
+            locationSection
+            radiusSection
+            monitoringFailureSection
+            notificationSection
+            repeatSection
+            Section {
+                AdListClearance()
             }
-            .tint(AppDesign.tint)
-            .background(AppDesign.background)
+            .listRowBackground(Color.clear)
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .tint(AppDesign.tint)
+        .scrollContentBackground(.hidden)
+        .background(AppDesign.background)
         .alert("アラームを追加できません", isPresented: $isAlarmLimitAlertPresented) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -216,6 +77,129 @@ struct AlarmDetailView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(AppDesign.tint)
                 .accessibilityHint("アラームの変更を保存します")
+            }
+        }
+    }
+
+    private var alarmNameSection: some View {
+        Section("アラーム名") {
+            HStack {
+                Label("アラーム名", systemImage: "tag")
+                    .labelStyle(.iconOnly)
+                    .foregroundStyle(AppDesign.tint)
+                TextField("アラーム名を入力", text: $alarmName)
+                if !alarmName.isEmpty {
+                    Button {
+                        alarmName = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var locationSection: some View {
+        Section("位置情報") {
+            AlarmDetailMapPreview(
+                cameraPosition: $cameraPosition,
+                coordinate: selectedCoordinate,
+                radius: radius,
+                title: alarmName.isEmpty ? "目的地" : alarmName
+            )
+
+            Label {
+                Text(String(format: "%.6f° N, %.6f° E", selectedCoordinate.latitude, selectedCoordinate.longitude))
+                    .foregroundStyle(.secondary)
+            } icon: {
+                Image(systemName: "mappin")
+                    .foregroundStyle(AppDesign.tint)
+            }
+        }
+        .onChange(of: radius) { _, newValue in
+            cameraPosition = .region(MKCoordinateRegion(
+                center: selectedCoordinate,
+                latitudinalMeters: newValue * 3.2,
+                longitudinalMeters: newValue * 3.2
+            ))
+        }
+    }
+
+    private var radiusSection: some View {
+        Section("到着範囲") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Label("到着範囲", systemImage: "scope")
+                        .labelStyle(.iconOnly)
+                        .foregroundStyle(AppDesign.tint)
+                    Slider(value: $radius, in: Alarm.minimumGeofenceRadius...Alarm.maximumGeofenceRadius, step: 50)
+                    Text("\(Int(radius)) m")
+                        .frame(width: 62, alignment: .trailing)
+                }
+
+                HStack {
+                    Text(Int(Alarm.minimumGeofenceRadius).formatted())
+                    Spacer()
+                    Text(Int((Alarm.minimumGeofenceRadius + Alarm.maximumGeofenceRadius) / 2).formatted())
+                    Spacer()
+                    Text(Int(Alarm.maximumGeofenceRadius).formatted())
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 30)
+                .padding(.trailing, 66)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var monitoringFailureSection: some View {
+        if let monitoringFailure {
+            Section {
+                Label(monitoringFailure, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private var notificationSection: some View {
+        Section {
+            Toggle(isOn: $isSoundEnabled) {
+                Label("音を鳴らす", systemImage: "bell")
+            }
+            .tint(AppDesign.tint)
+
+            Toggle(isOn: $isVibrationEnabled) {
+                Label("バイブレーション", systemImage: "iphone.gen3.radiowaves.left.and.right")
+            }
+            .tint(AppDesign.tint)
+
+            NavigationLink(destination: SoundSelectionView(selectedSound: $selectedSound)) {
+                HStack {
+                    Label("サウンド", systemImage: "music.note")
+                    Spacer()
+                    Text(selectedSound)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("通知")
+        } footer: {
+            Label("到着後は、通知をタップしてアプリを開くとアラームを停止できます。", systemImage: "info.circle")
+        }
+    }
+
+    private var repeatSection: some View {
+        Section("繰り返し") {
+            NavigationLink(destination: RepeatWeekdaySelectionView(selectedWeekdays: $repeatWeekdays)) {
+                HStack {
+                    Label("繰り返し", systemImage: "arrow.triangle.2.circlepath")
+                    Spacer()
+                    Text(weekdaySummary)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -337,55 +321,22 @@ struct AlarmDetailView: View {
     }
 }
 
-private struct AlarmSettingToggleRow: View {
-    let icon: String
+private struct AlarmDetailMapPreview: View {
+    @Binding var cameraPosition: MapCameraPosition
+    let coordinate: CLLocationCoordinate2D
+    let radius: Double
     let title: String
-    @Binding var isOn: Bool
 
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .font(.system(size: 21, weight: .medium))
-                .foregroundStyle(AppDesign.tint)
-                .frame(width: 28)
-            Text(title)
-                .font(.system(size: 17))
-            Spacer()
-            Toggle(title, isOn: $isOn)
-                .labelsHidden()
+        Map(position: $cameraPosition) {
+            MapCircle(center: coordinate, radius: radius)
+                .foregroundStyle(AppDesign.tint.opacity(0.22))
+                .stroke(AppDesign.tint, lineWidth: 2)
+            Marker(title, coordinate: coordinate)
                 .tint(AppDesign.tint)
         }
-        .padding(.horizontal, 16)
-        .frame(height: 56)
-    }
-}
-
-private struct AlarmSettingNavigationRow: View {
-    let icon: String
-    let title: String
-    let value: String
-
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .font(.system(size: 21, weight: .medium))
-                .foregroundStyle(AppDesign.tint)
-                .frame(width: 28)
-            Text(title)
-                .font(.system(size: 17))
-                .foregroundStyle(.primary)
-            Spacer()
-            Text(value)
-                .font(.system(size: 16))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, 16)
-        .frame(height: 56)
-        .contentShape(Rectangle())
+        .frame(height: 214)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -396,73 +347,45 @@ struct SoundSelectionView: View {
     @State private var audioPlayer: AVAudioPlayer?
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    AppSectionTitle(title: "アラーム音")
-                        .padding(.top, 34)
-                        .padding(.bottom, 8)
-                    AppCard {
-                        VStack(spacing: 0) {
-                            ForEach(Array(sounds.enumerated()), id: \.element) { index, sound in
-                                HStack(spacing: 14) {
-                                    Button {
-                                        selectedSound = sound
-                                    } label: {
-                                        HStack(spacing: 14) {
-                                            Image(systemName: "speaker.wave.2")
-                                                .font(.system(size: 21, weight: .medium))
-                                                .foregroundStyle(AppDesign.tint)
-                                                .frame(width: 28)
-                                            Text(sound)
-                                                .font(.system(size: 18))
-                                                .foregroundStyle(.primary)
-                                            if sound == selectedSound {
-                                                Image(systemName: "checkmark")
-                                                    .font(.system(size: 18, weight: .semibold))
-                                                    .foregroundStyle(AppDesign.tint)
-                                            }
-                                            Spacer()
-                                        }
-                                        .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-
-                                    Button {
-                                        preview(sound)
-                                    } label: {
-                                        Image(systemName: "play.fill")
-                                            .font(.system(size: 16, weight: .semibold))
-                                            .foregroundStyle(AppDesign.tint)
-                                            .frame(width: 36, height: 36)
-                                            .overlay {
-                                                Circle().stroke(AppDesign.tint, lineWidth: 1.5)
-                                            }
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityLabel("\(sound)を試聴")
-                                }
-                                .padding(.horizontal, 16)
-                                .frame(height: 66)
-
-                                if index < sounds.count - 1 {
-                                    Divider().padding(.leading, 58)
+        Form {
+            Section("アラーム音") {
+                ForEach(sounds, id: \.self) { sound in
+                    HStack {
+                        Button {
+                            selectedSound = sound
+                        } label: {
+                            HStack {
+                                Label(sound, systemImage: "speaker.wave.2")
+                                Spacer()
+                                if sound == selectedSound {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(AppDesign.tint)
                                 }
                             }
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            preview(sound)
+                        } label: {
+                            Image(systemName: "play.fill")
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("\(sound)を試聴")
                     }
-                    .padding(.horizontal, AppDesign.horizontalPadding)
-
-                    Text("タップすると試聴できます")
-                        .font(.system(size: 15))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 24)
-                        .padding(.top, 12)
-
-                    AdScrollClearance()
                 }
             }
+
+            Section {
+                AdListClearance()
+            } footer: {
+                Text("タップすると試聴できます")
+            }
+            .listRowBackground(Color.clear)
         }
+        .tint(AppDesign.tint)
+        .scrollContentBackground(.hidden)
         .background(AppDesign.background)
         .navigationTitle("サウンド")
         .navigationBarTitleDisplayMode(.inline)
@@ -493,136 +416,56 @@ struct RepeatWeekdaySelectionView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    AppSectionTitle(title: "繰り返し")
-                        .padding(.top, 34)
-                        .padding(.bottom, 8)
-                    AppCard {
-                        VStack(alignment: .leading, spacing: 18) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "repeat")
-                                    .font(.system(size: 18, weight: .semibold))
+        Form {
+            Section("繰り返し") {
+                Button {
+                    selectedWeekdays.removeAll()
+                } label: {
+                    HStack {
+                        Text("繰り返さない")
+                        Spacer()
+                        if selectedWeekdays.isEmpty {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(AppDesign.tint)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+
+                ForEach(0..<days.count, id: \.self) { index in
+                    Button {
+                        if selectedWeekdays.contains(index) {
+                            selectedWeekdays.remove(index)
+                        } else {
+                            selectedWeekdays.insert(index)
+                        }
+                    } label: {
+                        HStack {
+                            Text(days[index])
+                            Spacer()
+                            if selectedWeekdays.contains(index) {
+                                Image(systemName: "checkmark")
                                     .foregroundStyle(AppDesign.tint)
-                                    .frame(width: 34, height: 34)
-                                    .background(AppDesign.tint.opacity(0.12), in: Circle())
-
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("繰り返し")
-                                        .font(.system(size: 17, weight: .semibold))
-                                        .foregroundStyle(.primary)
-                                    Text(selectedDaySummary)
-                                        .font(.system(size: 15))
-                                        .foregroundStyle(.secondary)
-                                }
-
-                                Spacer()
-
-                                if selectedWeekdays.isEmpty {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 22, weight: .semibold))
-                                        .foregroundStyle(AppDesign.tint)
-                                        .accessibilityLabel("繰り返さない")
-                                } else {
-                                    Button("解除") {
-                                        selectedWeekdays.removeAll()
-                                    }
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(AppDesign.tint)
-                                    .buttonStyle(.plain)
-                                    .accessibilityHint("曜日の繰り返しを解除します")
-                                }
-                            }
-
-                            Divider()
-
-                            Text("曜日を選択")
-                                .font(.system(size: 15))
-                                .foregroundStyle(.secondary)
-
-                            HStack(spacing: 0) {
-                                ForEach(0..<days.count, id: \.self) { index in
-                                    Button {
-                                        if selectedWeekdays.contains(index) {
-                                            selectedWeekdays.remove(index)
-                                        } else {
-                                            selectedWeekdays.insert(index)
-                                        }
-                                    } label: {
-                                        Text(shortDays[index])
-                                            .font(.system(size: 16, weight: .semibold))
-                                            .frame(width: 40, height: 40)
-                                            .foregroundStyle(selectedWeekdays.contains(index) ? .white : .primary)
-                                            .background(
-                                                selectedWeekdays.contains(index) ? AppDesign.tint : Color(uiColor: .tertiarySystemFill),
-                                                in: Circle()
-                                            )
-                                            .overlay {
-                                                Circle()
-                                                    .stroke(
-                                                        selectedWeekdays.contains(index) ? Color.clear : Color.secondary.opacity(0.12),
-                                                        lineWidth: 1
-                                                    )
-                                            }
-                                    }
-                                    .buttonStyle(.plain)
-                                    .frame(maxWidth: .infinity)
-                                    .accessibilityLabel(days[index])
-                                    .accessibilityValue(selectedWeekdays.contains(index) ? "選択済み" : "未選択")
-                                }
                             }
                         }
-                        .padding(16)
                     }
-                    .padding(.horizontal, 9)
-
-                    Text(selectedWeekdays.isEmpty ? "繰り返さない場合は、次回の到着時に一度だけお知らせします。" : "塗りつぶされた曜日に、到着をお知らせします。")
-                        .font(.system(size: 15))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 24)
-                        .padding(.top, 14)
-
-                    AdScrollClearance()
+                    .buttonStyle(.plain)
+                    .accessibilityValue(selectedWeekdays.contains(index) ? "選択済み" : "未選択")
                 }
             }
+
+            Section {
+                AdListClearance()
+            } footer: {
+                Text(selectedWeekdays.isEmpty ? "繰り返さない場合は、次回の到着時に一度だけお知らせします。" : "\(selectedDaySummary)に、到着をお知らせします。")
+            }
+            .listRowBackground(Color.clear)
         }
+        .tint(AppDesign.tint)
+        .scrollContentBackground(.hidden)
         .background(AppDesign.background)
         .navigationTitle("繰り返し")
         .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-// 曜日選択のビュー
-struct WeekdayPickerView: View {
-    @Binding var selectedWeekdays: Set<Int>
-    let days = ["日", "月", "火", "水", "木", "金", "土"]
-
-    var body: some View {
-        HStack {
-            ForEach(0..<7, id: \.self) { i in
-                Button(action: {
-                    if selectedWeekdays.contains(i) {
-                        selectedWeekdays.remove(i)
-                    } else {
-                        selectedWeekdays.insert(i)
-                    }
-                    print("タップした曜日: \(i)")
-                    print("現在の選択: \(selectedWeekdays.sorted())")
-                }) {
-                    Text(days[i])
-                        .font(.caption)
-                        .padding(8)
-                        .background(selectedWeekdays.contains(i) ? Color.accentColor : Color.gray.opacity(0.3))
-                        .foregroundColor(.white)
-                        .clipShape(Circle())
-                }
-            }
-        }
-        .padding(.vertical, 4)
-        .onChange(of: selectedWeekdays) { _, newValue in
-            print("選択された曜日: \(newValue.sorted())")
-        }
     }
 }
 

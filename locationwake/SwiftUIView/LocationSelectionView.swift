@@ -29,8 +29,6 @@ struct LocationSelectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            searchField
-
             Map(position: $cameraPosition) {
                 ForEach(matchingItems) { item in
                     Marker(item.mapItem.name ?? "", coordinate: item.mapItem.placemark.coordinate)
@@ -49,6 +47,17 @@ struct LocationSelectionView: View {
         .background(AppDesign.background.ignoresSafeArea())
         .navigationTitle("目的地を検索")
         .navigationBarTitleDisplayMode(.inline)
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "駅名・場所を検索")
+        .onSubmit(of: .search) {
+            performSearch(searchText: searchText)
+        }
+        .onChange(of: searchText) { _, newValue in
+            if newValue.isEmpty {
+                matchingItems = []
+                region = initialRegion
+                cameraPosition = .region(initialRegion)
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("キャンセル") {
@@ -59,98 +68,40 @@ struct LocationSelectionView: View {
         }
     }
 
-    private var searchField: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 18))
-                .foregroundStyle(.secondary)
-            TextField("駅名・場所を検索", text: $searchText)
-                .font(.system(size: 17))
-                .submitLabel(.search)
-                .onSubmit {
-                    performSearch(searchText: searchText)
-                }
-            if searchText.isEmpty {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 18))
-                    .foregroundStyle(.secondary)
-            } else {
-                Button {
-                    searchText = ""
-                    matchingItems = []
-                    region = initialRegion
-                    cameraPosition = .region(initialRegion)
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 44)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .padding(.horizontal, 16)
-        .padding(.bottom, 12)
-    }
-
     private var emptyResults: some View {
-        VStack(spacing: 16) {
-            Text("検索結果")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Spacer(minLength: 12)
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 52, weight: .light))
-                .foregroundStyle(.secondary)
-            Text("場所を検索して目的地を選択")
-                .font(.system(size: 16))
-                .foregroundStyle(.secondary)
-            Spacer()
+        ContentUnavailableView {
+            Label("場所を検索", systemImage: "magnifyingglass")
+        } description: {
+            Text("駅名・場所を入力して目的地を選択します。")
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var resultList: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                Text("検索結果")
-                    .font(.system(size: 20, weight: .bold))
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    .padding(.bottom, 10)
-                AppCard {
-                    VStack(spacing: 0) {
-                        ForEach(Array(matchingItems.prefix(3).enumerated()), id: \.element.id) { index, item in
-                            NavigationLink(destination: alarmDetail(for: item)) {
-                                resultRow(item)
-                            }
-                            .buttonStyle(.plain)
-
-                            if index < min(matchingItems.count, 3) - 1 {
-                                Divider().padding(.leading, 72)
-                            }
-                        }
+        List {
+            Section("検索結果") {
+                ForEach(Array(matchingItems.prefix(3)), id: \.id) { item in
+                    NavigationLink(destination: alarmDetail(for: item)) {
+                        resultRow(item)
                     }
                 }
-                .padding(.horizontal, 16)
-                AdScrollClearance()
+            }
+
+            Section {
+                AdListClearance()
             }
         }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(AppDesign.background)
     }
 
     private func resultRow(_ item: IdentifiableMapItem) -> some View {
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.secondary.opacity(0.08))
-                .frame(width: 48, height: 48)
-                .overlay {
-                    Image(systemName: "mappin")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                }
+            Image(systemName: "mappin")
+                .font(.system(size: 22))
+                .foregroundStyle(.secondary)
+                .frame(width: 32)
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.mapItem.name ?? "不明な場所")
                     .font(.system(size: 17, weight: .semibold))
@@ -162,12 +113,7 @@ struct LocationSelectionView: View {
                     .lineLimit(1)
             }
             Spacer()
-            Image(systemName: "chevron.right")
-                .foregroundStyle(.tertiary)
         }
-        .padding(.horizontal, 12)
-        .frame(height: 66)
-        .contentShape(Rectangle())
     }
 
     private func alarmDetail(for item: IdentifiableMapItem) -> AlarmDetailView {

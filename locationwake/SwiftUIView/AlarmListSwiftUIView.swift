@@ -70,55 +70,42 @@ struct AlarmListSwiftUIView: View {
     var body: some View {
         BaseContainerView {
             NavigationStack(path: $navigationModel.path) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
+                List {
+                    Section {
                         Text("目的地に近づいたら、アラームでお知らせします。")
                             .font(.system(size: 16))
                             .foregroundStyle(.secondary)
-                            .lineSpacing(5)
-                            .padding(.horizontal, 20)
-                            .padding(.top, 12)
-                            .padding(.bottom, 34)
+                            .listRowBackground(Color.clear)
+                    }
 
                         if hasSettingsIssue {
-                            Button {
-                                navigationModel.path.append(.settings)
-                            } label: {
-                                Label("到着通知に必要な設定を確認してください", systemImage: "exclamationmark.triangle.fill")
-                                    .font(.footnote.weight(.medium))
-                                    .foregroundStyle(.orange)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(12)
-                                    .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                            Section {
+                                Button {
+                                    navigationModel.path.append(.settings)
+                                } label: {
+                                    Label("到着通知に必要な設定を確認してください", systemImage: "exclamationmark.triangle.fill")
+                                        .foregroundStyle(.orange)
+                                }
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 12)
                         }
 
                         if !viewModel.canAddAlarm {
-                            HStack(alignment: .top, spacing: 12) {
-                                Image(systemName: "exclamationmark.circle.fill")
-                                    .foregroundColor(.orange)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("アラームを追加できません")
-                                        .font(.subheadline.weight(.semibold))
-                                    Text("最大\(Alarm.maximumSavedAlarms)件に達しています。追加するには、不要なアラームを削除してください。")
-                                        .font(.footnote)
-                                        .foregroundColor(.secondary)
+                            Section {
+                                Label {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("アラームを追加できません")
+                                        Text("最大\(Alarm.maximumSavedAlarms)件に達しています。追加するには、不要なアラームを削除してください。")
+                                            .font(.footnote)
+                                            .foregroundColor(.secondary)
+                                    }
+                                } icon: {
+                                    Image(systemName: "exclamationmark.circle.fill")
+                                        .foregroundColor(.orange)
                                 }
-                                Spacer(minLength: 0)
-                                Text("\(viewModel.alarms.count)/\(Alarm.maximumSavedAlarms)")
-                                    .font(.footnote.monospacedDigit())
-                                    .foregroundColor(.secondary)
                             }
-                            .padding(12)
-                            .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-                            .padding(.horizontal, 16)
                         }
 
-                            AppSectionTitle(title: "有効なアラーム")
-                                .padding(.bottom, 8)
-
+                    Section("有効なアラーム") {
                         if viewModel.alarms.isEmpty {
                             ContentUnavailableView {
                                 Label("アラームはまだありません", systemImage: "bell.slash")
@@ -136,69 +123,56 @@ struct AlarmListSwiftUIView: View {
                                 }
                                 .buttonStyle(.borderless)
                             }
-                                .frame(maxWidth: .infinity, minHeight: 260)
+                            .frame(maxWidth: .infinity, minHeight: 260)
+                            .listRowBackground(Color.clear)
                         } else {
-                            AppCard {
-                                VStack(spacing: 0) {
-                                    ForEach(Array(viewModel.alarms.enumerated()), id: \.element.id) { index, alarm in
-                                        AlarmListRow(
-                                            alarm: alarm,
-                                            showsMap: true,
-                                            isEnabled: Binding(
-                                                get: { alarm.isAlarmEnabled },
-                                                set: { newValue in
-                                                    if let index = viewModel.alarms.firstIndex(where: { $0.id == alarm.id }) {
-                                                        viewModel.alarms[index].setEnabled(newValue)
-                                                        viewModel.saveAlarms()
-                                                    }
-                                                }
-                                            ),
-                                            onOpen: {
-                                                if alarm.location != nil {
-                                                    navigationModel.path.append(.alarmDetail(alarm: alarm))
-                                                }
-                                            },
-                                            onDelete: {
-                                                viewModel.deleteAlarm(id: alarm.id)
+                            ForEach(viewModel.alarms, id: \.id) { alarm in
+                                AlarmListRow(
+                                    alarm: alarm,
+                                    showsMap: true,
+                                    isEnabled: Binding(
+                                        get: { alarm.isAlarmEnabled },
+                                        set: { newValue in
+                                            if let index = viewModel.alarms.firstIndex(where: { $0.id == alarm.id }) {
+                                                viewModel.alarms[index].setEnabled(newValue)
+                                                viewModel.saveAlarms()
                                             }
-                                        )
-                                        if index < viewModel.alarms.count - 1 {
-                                            Divider().padding(.leading, 126)
                                         }
+                                    ),
+                                    onOpen: {
+                                        if alarm.location != nil {
+                                            navigationModel.path.append(.alarmDetail(alarm: alarm))
+                                        }
+                                    },
+                                    onDelete: {
+                                        viewModel.deleteAlarm(id: alarm.id)
                                     }
-                                }
+                                )
                             }
-                            .padding(.horizontal, 16)
                         }
-
-                            AppSectionTitle(title: "アラームを追加")
-                                .padding(.top, 24)
-                                .padding(.bottom, 8)
-
-                            AppCard {
-                                Button {
-                                    navigationModel.path.append(.locationSelection)
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "plus.circle.fill")
-                                            .font(.system(size: 28))
-                                        Text("目的地を追加")
-                                            .font(.system(size: 18, weight: .semibold))
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    .foregroundStyle(AppDesign.tint)
-                                    .padding(.horizontal, 14)
-                                    .frame(height: 58)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal, 16)
-
-                            AdScrollClearance()
                     }
+
+                    Section("アラームを追加") {
+                        Button {
+                            navigationModel.path.append(.locationSelection)
+                        } label: {
+                            Label {
+                                Text("目的地を追加")
+                                    .foregroundStyle(AppDesign.tint)
+                            } icon: {
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundStyle(AppDesign.tint)
+                            }
+                        }
+                    }
+
+                    Section {
+                        AdListClearance()
+                    }
+                    .listRowBackground(Color.clear)
                 }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
                 .background(AppDesign.background)
                 .navigationTitle("アラーム")
                 .navigationBarTitleDisplayMode(.large)
