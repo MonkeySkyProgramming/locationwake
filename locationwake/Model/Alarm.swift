@@ -25,6 +25,8 @@ struct Alarm: Codable, Identifiable, Equatable {
     // 再入室時の再トリガー用フラグ（初期値 false）
     var hasTriggered: Bool = false
     var hasTriggeredUntilExit: Bool = false // 領域から出るまでトリガー禁止
+    /// 新規保存・目的地変更・再有効化の直後に、現在が領域内かを確定するまで発火を保留する。
+    var needsInitialStateCheck: Bool = false
 
     static func normalizedRadius(_ radius: Double?) -> Double? {
         guard let radius else { return nil }
@@ -39,9 +41,25 @@ struct Alarm: Codable, Identifiable, Equatable {
         let isBeingReenabled = enabled && !isAlarmEnabled
         isAlarmEnabled = enabled
         if isBeingReenabled {
-            hasTriggered = false
-            hasTriggeredUntilExit = false
+            prepareForInitialStateCheck()
         }
+    }
+
+    mutating func prepareForInitialStateCheck() {
+        hasTriggered = false
+        hasTriggeredUntilExit = false
+        needsInitialStateCheck = true
+    }
+
+    mutating func resolveInitialState(isInside: Bool) {
+        needsInitialStateCheck = false
+        hasTriggered = false
+        hasTriggeredUntilExit = isInside
+    }
+
+    static func normalizedWeekdays(_ weekdays: [Int]?) -> [Int]? {
+        guard let weekdays else { return nil }
+        return Array(Set(weekdays.filter { (0...6).contains($0) })).sorted()
     }
 
     static func normalizedForPersistence(_ alarms: [Alarm]) -> [Alarm] {
@@ -53,12 +71,13 @@ struct Alarm: Codable, Identifiable, Equatable {
             }
             usedIDs.insert(normalized.id)
             normalized.radius = normalizedRadius(normalized.radius)
+            normalized.repeatWeekdays = normalizedWeekdays(normalized.repeatWeekdays)
             return normalized
         }
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, repeatWeekdays, sound, isAlarmEnabled, isSoundEnabled, isVibrationEnabled, location, radius, hasTriggered, hasTriggeredUntilExit
+        case id, name, repeatWeekdays, sound, isAlarmEnabled, isSoundEnabled, isVibrationEnabled, location, radius, hasTriggered, hasTriggeredUntilExit, needsInitialStateCheck
     }
 
     init(from decoder: Decoder) throws {
@@ -66,7 +85,9 @@ struct Alarm: Codable, Identifiable, Equatable {
         let decodedID = (try? container.decode(String.self, forKey: .id)) ?? ""
         id = decodedID.isEmpty ? UUID().uuidString : decodedID
         name = try container.decode(String.self, forKey: .name)
-        repeatWeekdays = try container.decodeIfPresent([Int].self, forKey: .repeatWeekdays)
+        repeatWeekdays = Self.normalizedWeekdays(
+            try container.decodeIfPresent([Int].self, forKey: .repeatWeekdays)
+        )
         sound = try container.decode(String.self, forKey: .sound)
         isAlarmEnabled = try container.decode(Bool.self, forKey: .isAlarmEnabled)
         isSoundEnabled = try container.decode(Bool.self, forKey: .isSoundEnabled)
@@ -75,6 +96,7 @@ struct Alarm: Codable, Identifiable, Equatable {
         radius = try container.decodeIfPresent(Double.self, forKey: .radius)
         hasTriggered = try container.decodeIfPresent(Bool.self, forKey: .hasTriggered) ?? false
         hasTriggeredUntilExit = try container.decodeIfPresent(Bool.self, forKey: .hasTriggeredUntilExit) ?? false
+        needsInitialStateCheck = try container.decodeIfPresent(Bool.self, forKey: .needsInitialStateCheck) ?? false
     }
 
     init(
@@ -88,11 +110,12 @@ struct Alarm: Codable, Identifiable, Equatable {
         location: Location? = nil,
         radius: Double? = nil,
         hasTriggered: Bool = false,
-        hasTriggeredUntilExit: Bool = false
+        hasTriggeredUntilExit: Bool = false,
+        needsInitialStateCheck: Bool = false
     ) {
         self.id = id.isEmpty ? UUID().uuidString : id
         self.name = name
-        self.repeatWeekdays = repeatWeekdays
+        self.repeatWeekdays = Self.normalizedWeekdays(repeatWeekdays)
         self.sound = sound
         self.isAlarmEnabled = isAlarmEnabled
         self.isSoundEnabled = isSoundEnabled
@@ -101,6 +124,7 @@ struct Alarm: Codable, Identifiable, Equatable {
         self.radius = Self.normalizedRadius(radius)
         self.hasTriggered = hasTriggered
         self.hasTriggeredUntilExit = hasTriggeredUntilExit
+        self.needsInitialStateCheck = needsInitialStateCheck
     }
 
     // default initializer remains available
@@ -109,22 +133,48 @@ struct Alarm: Codable, Identifiable, Equatable {
 enum AlarmStore {
     static let savedAlarmsKey = "SavedAlarms"
 
+    enum LoadError: LocalizedError, Equatable {
+        case unreadableData
+
+        var errorDescription: String? {
+            "保存したアラームを読み込めませんでした。もう一度お試しください。"
+        }
+    }
+
     static func load(from defaults: UserDefaults = .standard) -> [Alarm] {
-        guard let data = defaults.data(forKey: savedAlarmsKey),
-              let decoded = try? JSONDecoder().decode([LossyAlarm].self, from: data) else {
+        switch loadResult(from: defaults) {
+        case .success(let alarms):
+            return alarms
+        case .failure(let error):
+#if DEBUG
+            print("⚠️ event=alarmStoreLoadFailed reason=\(error.localizedDescription)")
+#endif
             return []
+        }
+    }
+
+    static func loadResult(
+        from defaults: UserDefaults = .standard
+    ) -> Result<[Alarm], LoadError> {
+        guard let data = defaults.data(forKey: savedAlarmsKey) else {
+            return .success([])
+        }
+        guard let decoded = try? JSONDecoder().decode([LossyAlarm].self, from: data) else {
+            return .failure(.unreadableData)
         }
 
         let alarms = Alarm.normalizedForPersistence(decoded.compactMap(\.value))
         let discardedCount = decoded.count - alarms.count
         if discardedCount > 0 {
+#if DEBUG
             print("⚠️ event=invalidSavedAlarmsDiscarded count=\(discardedCount)")
+#endif
         }
         migrateLegacyTriggerState(for: alarms, defaults: defaults)
         if let normalizedData = try? JSONEncoder().encode(alarms), normalizedData != data {
             defaults.set(normalizedData, forKey: savedAlarmsKey)
         }
-        return alarms
+        return .success(alarms)
     }
 
     private struct LossyAlarm: Decodable {
@@ -143,23 +193,13 @@ enum AlarmStore {
     }
 
     private static func migrateLegacyTriggerState(for alarms: [Alarm], defaults: UserDefaults) {
-        let nameCounts = Dictionary(grouping: alarms, by: \.name).mapValues(\.count)
         for alarm in alarms {
             let legacySkipKey = "SkipTrigger_\(alarm.name)"
             let legacyTimestampKey = "SkipTriggerAt_\(alarm.name)"
-
-            if nameCounts[alarm.name] == 1 {
-                if defaults.bool(forKey: legacySkipKey) {
-                    defaults.set(true, forKey: "SkipTrigger_\(alarm.id)")
-                }
-                if let timestamp = defaults.object(forKey: legacyTimestampKey) as? Date,
-                   Date().timeIntervalSince(timestamp) < AlarmTriggerPolicy.saveSkipInterval {
-                    defaults.set(timestamp, forKey: "SkipTriggerAt_\(alarm.id)")
-                }
-            }
-
             defaults.removeObject(forKey: legacySkipKey)
             defaults.removeObject(forKey: legacyTimestampKey)
+            defaults.removeObject(forKey: "SkipTrigger_\(alarm.id)")
+            defaults.removeObject(forKey: "SkipTriggerAt_\(alarm.id)")
         }
     }
 }

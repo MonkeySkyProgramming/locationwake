@@ -1,5 +1,7 @@
 import XCTest
+import AppTrackingTransparency
 import CoreLocation
+import UIKit
 import UserNotifications
 @testable import locationwake
 
@@ -47,6 +49,7 @@ final class locationwakeTests: XCTestCase {
         XCTAssertEqual(alarm.radius, 300.0)
         XCTAssertFalse(alarm.hasTriggered)
         XCTAssertFalse(alarm.hasTriggeredUntilExit)
+        XCTAssertFalse(alarm.needsInitialStateCheck)
     }
 
     func testAlarmDecodingPreservesExplicitTriggerAndVibrationState() throws {
@@ -65,7 +68,8 @@ final class locationwakeTests: XCTestCase {
           },
           "radius": 1000.0,
           "hasTriggered": true,
-          "hasTriggeredUntilExit": true
+          "hasTriggeredUntilExit": true,
+          "needsInitialStateCheck": true
         }
         """.data(using: .utf8)!
 
@@ -76,6 +80,7 @@ final class locationwakeTests: XCTestCase {
         XCTAssertTrue(alarm.isVibrationEnabled)
         XCTAssertTrue(alarm.hasTriggered)
         XCTAssertTrue(alarm.hasTriggeredUntilExit)
+        XCTAssertTrue(alarm.needsInitialStateCheck)
     }
 
     func testAlarmRoundTripsThroughJSON() throws {
@@ -90,7 +95,8 @@ final class locationwakeTests: XCTestCase {
             location: Location(latitude: 34.0, longitude: 135.0),
             radius: 750.0,
             hasTriggered: true,
-            hasTriggeredUntilExit: false
+            hasTriggeredUntilExit: false,
+            needsInitialStateCheck: true
         )
 
         let data = try JSONEncoder().encode(original)
@@ -108,9 +114,10 @@ final class locationwakeTests: XCTestCase {
         XCTAssertEqual(decoded.radius, original.radius)
         XCTAssertEqual(decoded.hasTriggered, original.hasTriggered)
         XCTAssertEqual(decoded.hasTriggeredUntilExit, original.hasTriggeredUntilExit)
+        XCTAssertEqual(decoded.needsInitialStateCheck, original.needsInitialStateCheck)
     }
 
-    func testNavigationRouteUsesAlarmIdForEquality() {
+    func testAlarmEditorSheetUsesAlarmIdAndModeForStableIdentity() {
         let first = Alarm(
             id: "same-id",
             name: "First",
@@ -118,14 +125,6 @@ final class locationwakeTests: XCTestCase {
             isAlarmEnabled: true,
             isSoundEnabled: true,
             isVibrationEnabled: false
-        )
-        let second = Alarm(
-            id: "same-id",
-            name: "Second",
-            sound: "siren",
-            isAlarmEnabled: false,
-            isSoundEnabled: false,
-            isVibrationEnabled: true
         )
         let different = Alarm(
             id: "different-id",
@@ -136,8 +135,18 @@ final class locationwakeTests: XCTestCase {
             isVibrationEnabled: false
         )
 
-        XCTAssertEqual(NavigationRoute.alarmDetail(alarm: first), NavigationRoute.alarmDetail(alarm: second))
-        XCTAssertNotEqual(NavigationRoute.alarmDetail(alarm: first), NavigationRoute.alarmDetail(alarm: different))
+        XCTAssertEqual(
+            AppSheetDestination.alarmEditor(alarm: first, isNew: false).id,
+            "alarm-editor-same-id-false"
+        )
+        XCTAssertEqual(
+            AppSheetDestination.alarmEditor(alarm: first, isNew: true).id,
+            "alarm-editor-same-id-true"
+        )
+        XCTAssertNotEqual(
+            AppSheetDestination.alarmEditor(alarm: first, isNew: false).id,
+            AppSheetDestination.alarmEditor(alarm: different, isNew: false).id
+        )
     }
 
     func testAlarmSchedulerUsesStableAlarmIdentifier() {
@@ -192,13 +201,42 @@ final class locationwakeTests: XCTestCase {
         XCTAssertEqual(tooLarge.radius, Alarm.maximumGeofenceRadius)
     }
 
-    func testAlarmStoreMigratesLegacyDataAndTriggerState() throws {
+    func testAlarmNormalizesWeekdaysToUniqueValuesFromZeroThroughSix() {
+        XCTAssertNil(Alarm.normalizedWeekdays(nil))
+        XCTAssertEqual(Alarm.normalizedWeekdays([]), [])
+        XCTAssertEqual(
+            Alarm.normalizedWeekdays([6, 0, 2, 2, -1, 7, 99]),
+            [0, 2, 6]
+        )
+
+        let alarm = Alarm(
+            id: "weekdays",
+            name: "Weekdays",
+            repeatWeekdays: [7, 6, 0, 6, -1],
+            sound: "kind",
+            isAlarmEnabled: true,
+            isSoundEnabled: true,
+            isVibrationEnabled: false
+        )
+
+        XCTAssertEqual(alarm.repeatWeekdays, [0, 6])
+
+        var mutated = alarm
+        mutated.repeatWeekdays = [8, 4, 4, 0, -2]
+        XCTAssertEqual(
+            Alarm.normalizedForPersistence([mutated]).first?.repeatWeekdays,
+            [0, 4]
+        )
+    }
+
+    func testAlarmStoreLoadsLegacyDataAndRemovesObsoleteSkipState() throws {
         let suiteName = "AlarmStoreTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
         let legacyJSON = """
         [{
+          "id": "legacy-id",
           "name": "Osaka Station",
           "sound": "modan",
           "isAlarmEnabled": true,
@@ -210,15 +248,17 @@ final class locationwakeTests: XCTestCase {
         defaults.set(legacyJSON, forKey: AlarmStore.savedAlarmsKey)
         defaults.set(true, forKey: "SkipTrigger_Osaka Station")
         defaults.set(Date(), forKey: "SkipTriggerAt_Osaka Station")
+        defaults.set(true, forKey: "SkipTrigger_legacy-id")
+        defaults.set(Date(), forKey: "SkipTriggerAt_legacy-id")
 
         let alarms = AlarmStore.load(from: defaults)
         let alarm = try XCTUnwrap(alarms.first)
 
-        XCTAssertFalse(alarm.id.isEmpty)
-        XCTAssertTrue(defaults.bool(forKey: "SkipTrigger_\(alarm.id)"))
-        XCTAssertNotNil(defaults.object(forKey: "SkipTriggerAt_\(alarm.id)"))
+        XCTAssertEqual(alarm.id, "legacy-id")
         XCTAssertNil(defaults.object(forKey: "SkipTrigger_Osaka Station"))
         XCTAssertNil(defaults.object(forKey: "SkipTriggerAt_Osaka Station"))
+        XCTAssertNil(defaults.object(forKey: "SkipTrigger_legacy-id"))
+        XCTAssertNil(defaults.object(forKey: "SkipTriggerAt_legacy-id"))
 
         let persisted = try XCTUnwrap(defaults.data(forKey: AlarmStore.savedAlarmsKey))
         XCTAssertTrue(String(decoding: persisted, as: UTF8.self).contains("\"id\""))
@@ -235,7 +275,7 @@ final class locationwakeTests: XCTestCase {
         XCTAssertNotEqual(normalized[0].id, normalized[1].id)
     }
 
-    func testAlarmSchedulerBuildsArrivalNotificationRequest() throws {
+    func testAlarmSchedulerBuildsPrimaryArrivalNotificationRequest() throws {
         let alarm = Alarm(
             id: "arrival",
             name: "Destination",
@@ -245,18 +285,50 @@ final class locationwakeTests: XCTestCase {
             isVibrationEnabled: false
         )
 
-        let request = AlarmScheduler.makeNotificationRequest(for: alarm)
+        let request = AlarmScheduler.makeNotificationRequest(
+            for: alarm,
+            isRinging: true
+        )
         let trigger = try XCTUnwrap(request.trigger as? UNTimeIntervalNotificationTrigger)
 
         XCTAssertEqual(request.identifier, "arrival")
-        XCTAssertEqual(request.content.title, "アラーム")
-        XCTAssertEqual(request.content.body, "Destinationに到達しました！アプリを起動してアラームを止めてください。")
+        XCTAssertEqual(request.content.title, "到着アラーム")
+        XCTAssertEqual(
+            request.content.body,
+            "Destinationに到着しました。アプリを開き、停止ボタンで止めてください。"
+        )
+        XCTAssertEqual(request.content.userInfo["alarmID"] as? String, "arrival")
         XCTAssertNotNil(request.content.sound)
         XCTAssertEqual(trigger.timeInterval, 1)
         XCTAssertFalse(trigger.repeats)
     }
 
-    func testAlarmSchedulerUsesNoNotificationSoundWhenAlarmSoundIsDisabled() {
+    func testAlarmSchedulerBuildsSilentSecondaryArrivalNotificationRequest() {
+        let alarm = Alarm(
+            id: "secondary",
+            name: "Second Destination",
+            sound: "kind",
+            isAlarmEnabled: true,
+            isSoundEnabled: true,
+            isVibrationEnabled: true
+        )
+
+        let request = AlarmScheduler.makeNotificationRequest(
+            for: alarm,
+            isRinging: false
+        )
+
+        XCTAssertEqual(request.identifier, "secondary")
+        XCTAssertEqual(request.content.title, "目的地に到着しました")
+        XCTAssertEqual(
+            request.content.body,
+            "Second Destinationへの到着を記録しました。"
+        )
+        XCTAssertEqual(request.content.userInfo["alarmID"] as? String, "secondary")
+        XCTAssertNil(request.content.sound)
+    }
+
+    func testAlarmSchedulerUsesNoPrimaryNotificationSoundWhenAlarmSoundIsDisabled() {
         let alarm = Alarm(
             id: "silent",
             name: "Silent",
@@ -266,7 +338,29 @@ final class locationwakeTests: XCTestCase {
             isVibrationEnabled: true
         )
 
-        XCTAssertNil(AlarmScheduler.makeNotificationRequest(for: alarm).content.sound)
+        XCTAssertNil(
+            AlarmScheduler.makeNotificationRequest(
+                for: alarm,
+                isRinging: true
+            ).content.sound
+        )
+    }
+
+    func testAlarmPlaybackStateMachineArbitratesAndStopsByExactID() {
+        var state = AlarmPlaybackStateMachine()
+
+        XCTAssertEqual(state.registerArrival(alarmID: "first"), .ring)
+        XCTAssertEqual(state.activeAlarmID, "first")
+        XCTAssertEqual(state.registerArrival(alarmID: "second"), .notifyOnly)
+        XCTAssertEqual(state.activeAlarmID, "first")
+
+        XCTAssertFalse(state.stop(alarmID: "second"))
+        XCTAssertEqual(state.activeAlarmID, "first")
+        XCTAssertTrue(state.stop(alarmID: "first"))
+        XCTAssertNil(state.activeAlarmID)
+
+        XCTAssertEqual(state.registerArrival(alarmID: "second"), .ring)
+        XCTAssertEqual(state.activeAlarmID, "second")
     }
 
     func testGeofenceEligibleAlarmsOnlyIncludesEnabledAlarmsWithLocationAndRadius() {
@@ -362,45 +456,33 @@ final class locationwakeTests: XCTestCase {
         XCTAssertEqual(AlarmTriggerPolicy.blockReason(for: untilExit, weekday: 1), .triggeredUntilExit)
     }
 
-    func testAlarmTriggerPolicyBlocksSaveSkipStates() {
+    func testAlarmTriggerPolicyBlocksWhileInitialStateIsPending() {
         let alarm = Alarm(
-            id: "skip",
-            name: "Skip",
+            id: "pending",
+            name: "Pending",
             sound: "kind",
             isAlarmEnabled: true,
             isSoundEnabled: true,
-            isVibrationEnabled: false
+            isVibrationEnabled: false,
+            needsInitialStateCheck: true
         )
-        let now = Date(timeIntervalSince1970: 100)
 
         XCTAssertEqual(
-            AlarmTriggerPolicy.blockReason(for: alarm, weekday: 1, hasMemorySkip: true),
-            .memorySkip
+            AlarmTriggerPolicy.blockReason(for: alarm, weekday: 1),
+            .initialStatePending
         )
         XCTAssertEqual(
-            AlarmTriggerPolicy.blockReason(for: alarm, weekday: 1, hasStoredSkipFlag: true),
-            .storedSkipFlag
-        )
-        XCTAssertEqual(
-            AlarmTriggerPolicy.blockReason(
+            AlarmTriggerPolicy.proximityAction(
                 for: alarm,
-                weekday: 1,
-                savedAt: Date(timeIntervalSince1970: 95),
-                now: now
+                distance: 0,
+                radius: 100,
+                weekday: 1
             ),
-            .savedTooRecently
-        )
-        XCTAssertNil(
-            AlarmTriggerPolicy.blockReason(
-                for: alarm,
-                weekday: 1,
-                savedAt: Date(timeIntervalSince1970: 80),
-                now: now
-            )
+            .none
         )
     }
 
-    func testReenablingAlarmClearsPreviousTriggerState() {
+    func testReenablingAlarmRequiresInitialStateCheckInsteadOfImmediatelyArming() {
         var alarm = Alarm(
             id: "reenable",
             name: "Reenable",
@@ -417,6 +499,152 @@ final class locationwakeTests: XCTestCase {
         XCTAssertTrue(alarm.isAlarmEnabled)
         XCTAssertFalse(alarm.hasTriggered)
         XCTAssertFalse(alarm.hasTriggeredUntilExit)
+        XCTAssertTrue(alarm.needsInitialStateCheck)
+    }
+
+    func testInitialStatePreparationAndResolutionForInsideAndOutside() {
+        var alarm = Alarm(
+            id: "initial-state",
+            name: "Initial State",
+            sound: "kind",
+            isAlarmEnabled: true,
+            isSoundEnabled: true,
+            isVibrationEnabled: false,
+            hasTriggered: true,
+            hasTriggeredUntilExit: true
+        )
+
+        alarm.prepareForInitialStateCheck()
+        XCTAssertTrue(alarm.needsInitialStateCheck)
+        XCTAssertFalse(alarm.hasTriggered)
+        XCTAssertFalse(alarm.hasTriggeredUntilExit)
+
+        var inside = alarm
+        inside.resolveInitialState(isInside: true)
+        XCTAssertFalse(inside.needsInitialStateCheck)
+        XCTAssertFalse(inside.hasTriggered)
+        XCTAssertTrue(inside.hasTriggeredUntilExit)
+
+        var outside = alarm
+        outside.resolveInitialState(isInside: false)
+        XCTAssertFalse(outside.needsInitialStateCheck)
+        XCTAssertFalse(outside.hasTriggered)
+        XCTAssertFalse(outside.hasTriggeredUntilExit)
+    }
+
+    func testPreparedInitialStateCheckResolvesFreshInsideOutsideAndUnknownLocations() {
+        let target = Location(latitude: 34.0, longitude: 135.0)
+        let alarm = Alarm(
+            id: "prepared",
+            name: "Prepared",
+            sound: "kind",
+            isAlarmEnabled: true,
+            isSoundEnabled: true,
+            isVibrationEnabled: false,
+            location: target,
+            radius: 300,
+            hasTriggered: true,
+            hasTriggeredUntilExit: true
+        )
+        let now = Date()
+        let insideLocation = makeCLLocation(
+            latitude: target.latitude,
+            longitude: target.longitude,
+            timestamp: now
+        )
+        let outsideLocation = makeCLLocation(
+            latitude: target.latitude + 0.01,
+            longitude: target.longitude,
+            timestamp: now
+        )
+
+        let inside = LocationManager.preparedForInitialStateCheck(
+            alarm,
+            currentLocation: insideLocation
+        )
+        XCTAssertFalse(inside.needsInitialStateCheck)
+        XCTAssertFalse(inside.hasTriggered)
+        XCTAssertTrue(inside.hasTriggeredUntilExit)
+
+        let outside = LocationManager.preparedForInitialStateCheck(
+            alarm,
+            currentLocation: outsideLocation
+        )
+        XCTAssertFalse(outside.needsInitialStateCheck)
+        XCTAssertFalse(outside.hasTriggered)
+        XCTAssertFalse(outside.hasTriggeredUntilExit)
+
+        let unknown = LocationManager.preparedForInitialStateCheck(
+            alarm,
+            currentLocation: nil
+        )
+        XCTAssertTrue(unknown.needsInitialStateCheck)
+        XCTAssertFalse(unknown.hasTriggered)
+        XCTAssertFalse(unknown.hasTriggeredUntilExit)
+
+        let stale = LocationManager.preparedForInitialStateCheck(
+            alarm,
+            currentLocation: makeCLLocation(
+                latitude: target.latitude,
+                longitude: target.longitude,
+                timestamp: now.addingTimeInterval(-31)
+            )
+        )
+        XCTAssertTrue(stale.needsInitialStateCheck)
+        XCTAssertFalse(stale.hasTriggeredUntilExit)
+    }
+
+    func testProximityPolicyWaitsForExitBeforeAllowingReentryTrigger() {
+        var alarm = Alarm(
+            id: "reentry",
+            name: "Reentry",
+            sound: "kind",
+            isAlarmEnabled: true,
+            isSoundEnabled: true,
+            isVibrationEnabled: false
+        )
+        alarm.prepareForInitialStateCheck()
+
+        XCTAssertEqual(
+            AlarmTriggerPolicy.proximityAction(
+                for: alarm,
+                distance: 10,
+                radius: 100,
+                weekday: 1
+            ),
+            .none
+        )
+
+        alarm.resolveInitialState(isInside: true)
+        XCTAssertEqual(
+            AlarmTriggerPolicy.proximityAction(
+                for: alarm,
+                distance: 10,
+                radius: 100,
+                weekday: 1
+            ),
+            .none
+        )
+        XCTAssertEqual(
+            AlarmTriggerPolicy.proximityAction(
+                for: alarm,
+                distance: 101,
+                radius: 100,
+                weekday: 1
+            ),
+            .resetAfterExit
+        )
+
+        alarm.resolveInitialState(isInside: false)
+        XCTAssertEqual(
+            AlarmTriggerPolicy.proximityAction(
+                for: alarm,
+                distance: 10,
+                radius: 100,
+                weekday: 1
+            ),
+            .trigger
+        )
     }
 
     func testAlarmStoreKeepsValidAlarmsWhenOneSavedItemIsInvalid() throws {
@@ -435,6 +663,25 @@ final class locationwakeTests: XCTestCase {
         let alarms = AlarmStore.load(from: defaults)
 
         XCTAssertEqual(alarms.map(\.id), ["valid-1", "valid-2"])
+    }
+
+    func testAlarmStoreReportsUnreadableSavedData() throws {
+        let suiteName = "AlarmStoreUnreadableTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(Data("not-json".utf8), forKey: AlarmStore.savedAlarmsKey)
+
+        switch AlarmStore.loadResult(from: defaults) {
+        case .success:
+            XCTFail("Unreadable data must not be reported as a successful load")
+        case .failure(let error):
+            XCTAssertEqual(error, .unreadableData)
+            XCTAssertEqual(
+                error.errorDescription,
+                "保存したアラームを読み込めませんでした。もう一度お試しください。"
+            )
+        }
+        XCTAssertEqual(AlarmStore.load(from: defaults), [])
     }
 
     func testProximityPolicyTriggersWhenWeekdayBecomesEligibleWhileStillInside() {
@@ -561,6 +808,66 @@ final class locationwakeTests: XCTestCase {
         XCTAssertEqual(HapticManager.normalizedRepeatCount(-1), 0)
     }
 
+    func testSoundPlayerOwnershipRejectsReplacementAndWrongIDStopWithoutAudio() {
+        let soundPlayer = SoundPlayer.shared
+        if let existingID = soundPlayer.activeAlarmID {
+            _ = soundPlayer.stopAlarm(id: existingID)
+        }
+        let ownerID = "sound-owner-\(UUID().uuidString)"
+        defer { _ = soundPlayer.stopAlarm(id: ownerID) }
+
+        XCTAssertTrue(
+            soundPlayer.startAlarm(
+                id: ownerID,
+                sound: "__missing_unit_test_sound__"
+            )
+        )
+        XCTAssertEqual(soundPlayer.activeAlarmID, ownerID)
+        XCTAssertFalse(
+            soundPlayer.startAlarm(
+                id: "different-owner",
+                sound: "__missing_unit_test_sound__"
+            )
+        )
+        XCTAssertFalse(soundPlayer.stopAlarm(id: "different-owner"))
+        XCTAssertEqual(soundPlayer.activeAlarmID, ownerID)
+
+        XCTAssertFalse(
+            soundPlayer.playPreview(
+                soundName: "__missing_unit_test_preview__"
+            )
+        )
+        XCTAssertEqual(soundPlayer.activeAlarmID, ownerID)
+        XCTAssertTrue(soundPlayer.stopAlarm(id: ownerID))
+        XCTAssertNil(soundPlayer.activeAlarmID)
+    }
+
+    func testHapticOwnerValidationCanBeTestedWithoutProducingHaptics() {
+        if let existingID = HapticManager.activeAlarmID {
+            _ = HapticManager.stopAlarm(id: existingID)
+        }
+
+        XCTAssertFalse(
+            HapticManager.startAlarm(
+                id: "",
+                type: .systemVibrate,
+                count: 1,
+                interval: 1
+            )
+        )
+        XCTAssertFalse(
+            HapticManager.startAlarm(
+                id: "zero-count",
+                type: .systemVibrate,
+                count: 0,
+                interval: 1
+            )
+        )
+        HapticManager.startPreview(.systemVibrate, count: 0, interval: 1)
+        XCTAssertNil(HapticManager.activeAlarmID)
+        XCTAssertFalse(HapticManager.stopAlarm(id: "not-active"))
+    }
+
     func testAlarmAudioSessionMixesAndDucksOtherAudio() {
         let options = SoundPlayer.alarmCategoryOptions
         XCTAssertTrue(options.contains(.mixWithOthers))
@@ -581,7 +888,140 @@ final class locationwakeTests: XCTestCase {
         ))
     }
 
+    func testPermissionReadinessPredicatesAndIssueOrdering() {
+        let ready = makePermissionSnapshot()
+        XCTAssertTrue(ready.hasAlwaysLocationAuthorization)
+        XCTAssertTrue(ready.hasPreciseLocationAuthorization)
+        XCTAssertTrue(ready.hasNotificationAuthorization)
+        XCTAssertTrue(ready.hasNotificationSound)
+        XCTAssertTrue(ready.hasBackgroundRefresh)
+        XCTAssertTrue(ready.authorizationIssues.isEmpty)
+        XCTAssertTrue(ready.issues.isEmpty)
+        XCTAssertTrue(ready.isReadyForReliableArrival)
+
+        let missing = makePermissionSnapshot(
+            locationAuthorization: .authorizedWhenInUse,
+            locationAccuracyAuthorization: .reducedAccuracy,
+            notificationAuthorization: .denied,
+            notificationSoundSetting: .disabled,
+            backgroundRefreshStatus: .denied
+        )
+        XCTAssertEqual(
+            missing.authorizationIssues.map(\.rawValue),
+            [
+                PermissionReadinessIssue.locationAlways.rawValue,
+                PermissionReadinessIssue.notificationAuthorization.rawValue
+            ]
+        )
+        XCTAssertEqual(
+            missing.issues.map(\.rawValue),
+            [
+                PermissionReadinessIssue.locationAlways.rawValue,
+                PermissionReadinessIssue.preciseLocation.rawValue,
+                PermissionReadinessIssue.notificationAuthorization.rawValue,
+                PermissionReadinessIssue.backgroundRefresh.rawValue
+            ]
+        )
+        XCTAssertFalse(missing.isReadyForReliableArrival)
+
+        let notificationsNotLoaded = makePermissionSnapshot(
+            notificationAuthorization: .denied,
+            notificationSoundSetting: .disabled,
+            hasLoadedNotificationSettings: false
+        )
+        XCTAssertFalse(notificationsNotLoaded.hasNotificationAuthorization)
+        XCTAssertTrue(notificationsNotLoaded.issues.isEmpty)
+        XCTAssertFalse(notificationsNotLoaded.isReadyForReliableArrival)
+
+        let soundDisabled = makePermissionSnapshot(
+            notificationSoundSetting: .disabled
+        )
+        XCTAssertEqual(
+            soundDisabled.issues.map(\.rawValue),
+            [PermissionReadinessIssue.notificationSound.rawValue]
+        )
+    }
+
+    func testATTRequestEligibilityRequiresEveryDeferredPromptCondition() {
+        let eligible: (
+            ATTrackingManager.AuthorizationStatus,
+            Int,
+            Int,
+            Bool,
+            Bool
+        ) -> Bool = { status, launches, alarms, onboarding, requested in
+            ATTRequestEligibility.shouldRequest(
+                authorizationStatus: status,
+                coldLaunchCount: launches,
+                savedAlarmCount: alarms,
+                hasCompletedOnboarding: onboarding,
+                hasRequestedTrackingAuthorization: requested
+            )
+        }
+
+        XCTAssertTrue(
+            eligible(
+                .notDetermined,
+                ATTRequestEligibility.minimumColdLaunchCount,
+                1,
+                true,
+                false
+            )
+        )
+        XCTAssertFalse(eligible(.authorized, 3, 1, true, false))
+        XCTAssertFalse(eligible(.notDetermined, 2, 1, true, false))
+        XCTAssertFalse(eligible(.notDetermined, 3, 0, true, false))
+        XCTAssertFalse(eligible(.notDetermined, 3, 1, false, false))
+        XCTAssertFalse(eligible(.notDetermined, 3, 1, true, true))
+    }
+
+    func testAppLaunchCounterUsesInjectedDefaults() throws {
+        let suiteName = "AppLaunchCounterTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        XCTAssertEqual(AppLaunchCounter.coldLaunchCount(in: defaults), 0)
+        XCTAssertEqual(AppLaunchCounter.recordColdLaunch(in: defaults), 1)
+        XCTAssertEqual(AppLaunchCounter.recordColdLaunch(in: defaults), 2)
+        XCTAssertEqual(AppLaunchCounter.coldLaunchCount(in: defaults), 2)
+    }
+
     func testAppRuntimeSuppressesExternalSideEffectsInUnitTests() {
         XCTAssertTrue(AppRuntime.shouldSuppressExternalSideEffects)
+    }
+
+    private func makeCLLocation(
+        latitude: CLLocationDegrees,
+        longitude: CLLocationDegrees,
+        timestamp: Date
+    ) -> CLLocation {
+        CLLocation(
+            coordinate: CLLocationCoordinate2D(
+                latitude: latitude,
+                longitude: longitude
+            ),
+            altitude: 0,
+            horizontalAccuracy: 5,
+            verticalAccuracy: 5,
+            timestamp: timestamp
+        )
+    }
+
+    private func makePermissionSnapshot(
+        locationAuthorization: CLAuthorizationStatus = .authorizedAlways,
+        locationAccuracyAuthorization: CLAccuracyAuthorization = .fullAccuracy,
+        notificationAuthorization: UNAuthorizationStatus = .authorized,
+        notificationSoundSetting: UNNotificationSetting = .enabled,
+        backgroundRefreshStatus: UIBackgroundRefreshStatus = .available,
+        hasLoadedNotificationSettings: Bool = true
+    ) -> PermissionReadinessSnapshot {
+        PermissionReadinessSnapshot(
+            locationAuthorization: locationAuthorization,
+            locationAccuracyAuthorization: locationAccuracyAuthorization,
+            notificationAuthorization: notificationAuthorization,
+            notificationSoundSetting: notificationSoundSetting,
+            backgroundRefreshStatus: backgroundRefreshStatus,
+            hasLoadedNotificationSettings: hasLoadedNotificationSettings
+        )
     }
 }

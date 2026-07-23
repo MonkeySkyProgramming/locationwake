@@ -5,41 +5,33 @@ import UserNotifications
 struct SettingView: View {
     @AppStorage("defaultRadius") private var defaultRadius: Double = Alarm.defaultGeofenceRadius
     @AppStorage("isSoundEnabled") private var isSoundEnabled: Bool = true
-    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding: Bool = true
-    @State private var locationAuthorization = CLLocationManager().authorizationStatus
-    @State private var notificationAuthorization: UNAuthorizationStatus = .notDetermined
-    @State private var notificationSoundSetting: UNNotificationSetting = .notSupported
+    @ObservedObject private var permissionReadiness: PermissionReadiness
+
+    init(permissionReadiness: PermissionReadiness = .shared) {
+        _permissionReadiness = ObservedObject(wrappedValue: permissionReadiness)
+    }
 
     var body: some View {
         Form {
-            Section("アラーム") {
-                Toggle("アラーム音を有効にする", isOn: $isSoundEnabled)
+            Section {
+                Toggle("音を鳴らす", isOn: $isSoundEnabled)
                     .tint(AppDesign.tint)
 
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("デフォルトの到着範囲")
-                        Spacer()
-                        Text("\(Int(defaultRadius)) m")
-                            .foregroundStyle(.primary)
-                    }
-
-                    Slider(value: $defaultRadius, in: Alarm.minimumGeofenceRadius...Alarm.maximumGeofenceRadius, step: 50)
-
-                    HStack {
-                        Text("\(Int(Alarm.minimumGeofenceRadius).formatted()) m")
-                        Spacer()
-                        Text("\(Int((Alarm.minimumGeofenceRadius + Alarm.maximumGeofenceRadius) / 2).formatted()) m")
-                        Spacer()
-                        Text("\(Int(Alarm.maximumGeofenceRadius).formatted()) m")
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
+                RadiusPickerControl(radius: $defaultRadius)
+            } header: {
+                Text("新しいアラームの初期設定")
+            } footer: {
+                Text("ここでの変更は、これから作成するアラームにだけ反映されます。")
             }
 
             Section("到着通知に必要な設定") {
-                if permissionsComplete {
+                if !permissionReadiness.snapshot.hasLoadedNotificationSettings {
+                    HStack(spacing: 12) {
+                        ProgressView()
+                        Text("設定を確認しています")
+                            .foregroundStyle(.secondary)
+                    }
+                } else if permissionReadiness.snapshot.isReadyForReliableArrival {
                     Label {
                         Text("到着通知の設定は完了しています")
                             .foregroundStyle(.primary)
@@ -48,37 +40,13 @@ struct SettingView: View {
                             .foregroundStyle(AppDesign.tint)
                     }
                 } else {
-                    if locationAuthorization != .authorizedAlways {
-                        Button(action: openAppSettings) {
-                            settingsLabel(
-                                "位置情報を「常に許可」にしてください",
-                                systemImage: "exclamationmark.triangle.fill",
-                                iconColor: .orange
-                            )
-                        }
-                    }
-
-                    if !notificationAllowed {
+                    ForEach(permissionReadiness.snapshot.issues) { issue in
                         Button {
-                            if notificationAuthorization == .notDetermined {
-                                NotificationManager.shared.requestNotificationPermission()
-                            } else {
-                                openAppSettings()
-                            }
+                            handlePermissionIssue(issue)
                         } label: {
                             settingsLabel(
-                                "通知を許可してください",
-                                systemImage: "exclamationmark.triangle.fill",
-                                iconColor: .orange
-                            )
-                        }
-                    }
-
-                    if notificationAllowed && !notificationSoundAllowed {
-                        Button(action: openAppSettings) {
-                            settingsLabel(
-                                "通知のサウンドをオンにしてください",
-                                systemImage: "speaker.slash.fill",
+                                issue.title,
+                                systemImage: issue.systemImage,
                                 iconColor: .orange
                             )
                         }
@@ -104,7 +72,6 @@ struct SettingView: View {
 
             Section("ヘルプ") {
                 Button {
-                    hasSeenOnboarding = false
                     NotificationCenter.default.post(name: NSNotification.Name("ShowHelpOverlay"), object: nil)
                 } label: {
                     settingsLabel("使い方をもう一度見る", systemImage: "questionmark.circle")
@@ -118,38 +85,43 @@ struct SettingView: View {
                 }
                 .foregroundStyle(.primary)
             }
-
-            Section {
-                AdListClearance()
-            }
-            .listRowBackground(Color.clear)
         }
         .tint(AppDesign.tint)
         .scrollContentBackground(.hidden)
         .background(AppDesign.background)
         .navigationTitle("設定")
         .navigationBarTitleDisplayMode(.inline)
-        .onChange(of: hasSeenOnboarding) { _, newValue in
-            if newValue == false {
-                NotificationCenter.default.post(name: NSNotification.Name("ShowHelpOverlay"), object: nil)
-            }
-        }
         .onAppear {
             defaultRadius = Alarm.normalizedRadius(defaultRadius) ?? Alarm.defaultGeofenceRadius
-            refreshAuthorization()
+            permissionReadiness.refresh()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            refreshAuthorization()
+            permissionReadiness.refresh()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .locationAuthorizationDidChange)) { _ in
+            permissionReadiness.refresh()
         }
     }
 
-    private func refreshAuthorization() {
-        locationAuthorization = CLLocationManager().authorizationStatus
-        UNUserNotificationCenter.current().getNotificationSettings { settings in
-            DispatchQueue.main.async {
-                notificationAuthorization = settings.authorizationStatus
-                notificationSoundSetting = settings.soundSetting
+    private func handlePermissionIssue(_ issue: PermissionReadinessIssue) {
+        switch issue {
+        case .locationAlways:
+            switch permissionReadiness.snapshot.locationAuthorization {
+            case .notDetermined, .authorizedWhenInUse:
+                permissionReadiness.requestAlwaysLocationAuthorization()
+            case .authorizedAlways, .denied, .restricted:
+                permissionReadiness.openAppSettings()
+            @unknown default:
+                permissionReadiness.openAppSettings()
             }
+        case .notificationAuthorization:
+            if permissionReadiness.snapshot.notificationAuthorization == .notDetermined {
+                permissionReadiness.requestNotificationAuthorization()
+            } else {
+                permissionReadiness.openAppSettings()
+            }
+        case .preciseLocation, .notificationSound, .backgroundRefresh:
+            permissionReadiness.openAppSettings()
         }
     }
 
@@ -167,22 +139,7 @@ struct SettingView: View {
         }
     }
 
-    private var notificationAllowed: Bool {
-        notificationAuthorization == .authorized || notificationAuthorization == .provisional || notificationAuthorization == .ephemeral
-    }
-
-    private var permissionsComplete: Bool {
-        Self.areArrivalPermissionsComplete(
-            locationAuthorization: locationAuthorization,
-            notificationAuthorization: notificationAuthorization,
-            notificationSoundSetting: notificationSoundSetting
-        )
-    }
-
-    private var notificationSoundAllowed: Bool {
-        notificationSoundSetting == .enabled
-    }
-
+    /// 既存の判定テストと、3項目だけを扱う呼び出し元の互換性を保つ。
     static func areArrivalPermissionsComplete(
         locationAuthorization: CLAuthorizationStatus,
         notificationAuthorization: UNAuthorizationStatus,
@@ -194,10 +151,5 @@ struct SettingView: View {
         return locationAuthorization == .authorizedAlways
             && notificationsAllowed
             && notificationSoundSetting == .enabled
-    }
-
-    private func openAppSettings() {
-        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-        UIApplication.shared.open(url)
     }
 }

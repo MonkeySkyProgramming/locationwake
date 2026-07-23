@@ -3,32 +3,44 @@ import UserNotifications
 
 class NotificationManager {
     static let shared = NotificationManager()
-    
-    // 通知の許可をリクエストするメソッド
-    func requestNotificationPermission() {
+
+    /// 通知設定の説明画面など、ユーザー操作を起点に呼び出す。
+    /// すでに選択済みの場合はシステムダイアログを出さず、現在の状態を返す。
+    func requestNotificationPermission(
+        completion: @escaping (UNAuthorizationStatus) -> Void = { _ in }
+    ) {
         let center = UNUserNotificationCenter.current()
-        
+
         center.getNotificationSettings { settings in
             switch settings.authorizationStatus {
             case .notDetermined:
-                // ユーザーに許可をリクエスト
                 center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-                    DispatchQueue.main.async {
-                        if granted {
-                            print("通知の許可が得られました")
-                        } else {
-                            print("通知の許可が拒否されました: \(String(describing: error?.localizedDescription))")
+                    if let error {
+                        print("通知の許可リクエストに失敗しました: \(error.localizedDescription)")
+                    }
+
+                    // requestAuthorization の Bool だけでなく、確定したシステム設定を返す。
+                    center.getNotificationSettings { updatedSettings in
+                        DispatchQueue.main.async {
+                            print(granted ? "通知の許可が得られました" : "通知は許可されませんでした")
+                            completion(updatedSettings.authorizationStatus)
                         }
                     }
                 }
             case .denied:
                 print("⚠️ 通知は許可されていません。設定画面で案内します。")
+                DispatchQueue.main.async {
+                    completion(.denied)
+                }
             case .authorized, .provisional, .ephemeral:
                 DispatchQueue.main.async {
                     print("通知の許可が得られました")
+                    completion(settings.authorizationStatus)
                 }
             @unknown default:
-                break
+                DispatchQueue.main.async {
+                    completion(settings.authorizationStatus)
+                }
             }
         }
     }

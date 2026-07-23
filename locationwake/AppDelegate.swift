@@ -1,9 +1,5 @@
-import AppTrackingTransparency
-import AdSupport
 import UIKit
-import CoreLocation
 import GoogleMobileAds   // Google Mobile Ads SDK をインポート
-import SwiftUI
 import UserNotifications
 
 enum AppRuntime {
@@ -21,6 +17,19 @@ enum AppRuntime {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
+    static var shouldForceOnboarding: Bool {
+        ProcessInfo.processInfo.arguments.contains("--show-onboarding")
+    }
+
+    static var shouldResetUITestData: Bool {
+        ProcessInfo.processInfo.arguments.contains("--ui-test-reset-data")
+    }
+
+    static var shouldSimulateActiveAlarm: Bool {
+        ProcessInfo.processInfo.arguments.contains("--simulate-active-alarm")
+            || ProcessInfo.processInfo.environment["SIMULATE_ACTIVE_ALARM"] == "1"
+    }
+
     static var shouldSuppressExternalSideEffects: Bool {
         isUnitTesting || isUITesting || isScreenshotMode
     }
@@ -36,30 +45,31 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         UNUserNotificationCenter.current().delegate = self
 
-        if !AppRuntime.shouldSuppressExternalSideEffects {
-            MobileAds.shared.start { _ in }
+        if AppRuntime.isUITesting && AppRuntime.shouldResetUITestData {
+            UserDefaults.standard.removeObject(forKey: AlarmStore.savedAlarmsKey)
+            UserDefaults.standard.removeObject(
+                forKey: AppLifecycleDefaultsKey.onboardingCompleted
+            )
+            UserDefaults.standard.removeObject(forKey: "ActiveAlarmID")
+            UserDefaults.standard.removeObject(forKey: "ActiveAlarmName")
+        }
 
-            if #available(iOS 14, *) {
-                ATTrackingManager.requestTrackingAuthorization { status in
-                    print("ATT ステータス: \(status.rawValue)")
-                }
-            }
+        if !AppRuntime.shouldSuppressExternalSideEffects {
+            AppLaunchCounter.recordColdLaunch()
+            MobileAds.shared.start { _ in }
 
             LocationManager.shared.restoreSavedAlarms(reason: "launch")
         }
         
         let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = .systemGroupedBackground
+        appearance.configureWithDefaultBackground()
         appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
         appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
-        appearance.shadowColor = .clear
-        appearance.shadowImage = UIImage()
 
         UINavigationBar.appearance().standardAppearance = appearance
         UINavigationBar.appearance().scrollEdgeAppearance = appearance
         UINavigationBar.appearance().compactAppearance = appearance
-        UINavigationBar.appearance().tintColor = UIColor(red: 0.0, green: 0.54, blue: 0.60, alpha: 1.0)
+        UINavigationBar.appearance().tintColor = AppDesign.tintUIColor
 
         return true
     }
@@ -84,13 +94,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             return
         }
 
-        // 通知からアプリを開いた場合も、フォアグラウンド遷移を待たず確実に停止する。
-        SoundPlayer.shared.stopSound()
-        HapticManager.stop()
-        UserDefaults.standard.set(true, forKey: "ShouldShowAlarmStoppedScreen")
-        DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .alarmStopRequested, object: nil)
-        }
+        // 通知タップだけでは停止せず、現在鳴っているアラームの停止画面を前面に出す。
+        AlarmActivityCenter.shared.presentCurrentAlarmIfNeeded()
         completionHandler()
     }
 
@@ -103,6 +108,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func applicationDidBecomeActive(_ application: UIApplication) {
         guard !AppRuntime.shouldSuppressExternalSideEffects else { return }
         LocationManager.shared.restoreSavedAlarms(reason: "becameActive")
+        AlarmActivityCenter.shared.presentCurrentAlarmIfNeeded()
+        ATTAuthorizationCoordinator.shared.requestIfEligible()
     }
 
     func applicationWillTerminate(_ application: UIApplication) {}

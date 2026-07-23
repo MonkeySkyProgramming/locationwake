@@ -1,9 +1,15 @@
 import SwiftUI
 
 enum AppDesign {
-    static let tint = Color(red: 0.0, green: 0.54, blue: 0.60)
+    static let tintUIColor = UIColor { traits in
+        if traits.accessibilityContrast == .high {
+            return UIColor(red: 0.0, green: 0.34, blue: 0.38, alpha: 1)
+        }
+        return UIColor(red: 0.0, green: 0.47, blue: 0.52, alpha: 1)
+    }
+    static let tint = Color(uiColor: tintUIColor)
     static let background = Color(uiColor: .systemGroupedBackground)
-    static let adScrollClearance: CGFloat = 112
+    static let adScrollClearance: CGFloat = 0
 }
 
 struct AdListClearance: View {

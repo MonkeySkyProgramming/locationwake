@@ -1,180 +1,434 @@
 import SwiftUI
 import CoreLocation
 import UIKit
+import UserNotifications
 
 struct OnboardingView: View {
-    private struct Page: Identifiable {
-        let title: String
-        let message: String
-        let symbol: String
-        let screenshotAsset: String?
-        var id: String { title }
+    enum PresentationMode: Equatable {
+        case firstRun
+        case help
     }
 
-    private let pages = [
-        Page(title: "目的地で起きる。", message: "設定した場所に近づくと、アラームでお知らせします。", symbol: "location.circle.fill", screenshotAsset: "onboarding1"),
-        Page(title: "目的地を検索。", message: "駅名や場所を検索して、目的地を選びます。", symbol: "magnifyingglass", screenshotAsset: "onboarding2"),
-        Page(title: "到着範囲を決める。", message: "地図を見ながら、到着を知らせる範囲を設定できます。", symbol: "scope", screenshotAsset: "onboarding3"),
-        Page(title: "いつでも見守る。", message: "バックグラウンドで到着を検知するため、位置情報を「常に許可」にしてください。", symbol: "location.fill.viewfinder", screenshotAsset: nil),
-        Page(title: "到着をお知らせ。", message: "目的地に近づくと、通知・音・バイブレーションでお知らせします。通知をタップしてアプリを開くと、アラームを停止できます。", symbol: "bell.badge.fill", screenshotAsset: nil)
-    ]
+    private enum Step {
+        case intro
+        case location
+        case notification
+    }
 
     @Environment(\.dismiss) private var dismiss
-    @State private var currentPage = 0
-    @State private var locationAuthorization = CLLocationManager().authorizationStatus
-    @State private var showsLocationPermissionAlert = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ObservedObject private var permissionReadiness: PermissionReadiness
+    @ScaledMetric(relativeTo: .largeTitle) private var heroSymbolSize = 88
+
+    private let presentationMode: PresentationMode
+    private let onCompleted: () -> Void
+
+    @State private var step: Step = .intro
+    @State private var hasAttemptedLocationRequest = false
+    @State private var hasAttemptedNotificationRequest = false
+    @State private var isRequestingNotification = false
+
+    init(
+        presentationMode: PresentationMode = .firstRun,
+        permissionReadiness: PermissionReadiness = .shared,
+        onCompleted: @escaping () -> Void = {}
+    ) {
+        self.presentationMode = presentationMode
+        self.onCompleted = onCompleted
+        _permissionReadiness = ObservedObject(wrappedValue: permissionReadiness)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            TabView(selection: $currentPage) {
-                ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
-                    pageContent(page)
-                    .tag(index)
+            if presentationMode == .help {
+                HStack {
+                    Spacer()
+                    Button("閉じる") {
+                        dismiss()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: .always))
 
-            Button(currentPage == pages.count - 1 ? "はじめる" : "次へ") {
-                if currentPage == 3 && locationAuthorization != .authorizedAlways {
-                    showsLocationPermissionAlert = true
-                } else if currentPage == pages.count - 1 {
-                    UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
-                    dismiss()
-                } else {
-                    withAnimation { currentPage += 1 }
-                }
+            ScrollView {
+                stepContent
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 28)
+                    .padding(.top, 24)
+                    .padding(.bottom, 20)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(AppDesign.tint)
-            .controlSize(.large)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 24)
 
-            if currentPage != 3 {
-                Button("あとで") {
-                    UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
-                    dismiss()
-                }
-                .padding(.vertical, 16)
-            } else {
-                Text("位置情報を「常に許可」にすると次へ進めます")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 16)
-            }
+            controls
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
         }
-        .padding(.top, 8)
-        .background(Color(uiColor: .systemBackground))
-        .alert("位置情報を「常に許可」にしてください", isPresented: $showsLocationPermissionAlert) {
-            Button(locationAuthorization == .notDetermined ? "位置情報を許可" : "設定を開く") {
-                requestRequiredLocationAuthorization()
-            }
-        } message: {
-            Text("バックグラウンドで到着を検知するために必要です。許可後も「常に許可」になっていない場合は、設定アプリで変更してください。")
+        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+        .interactiveDismissDisabled(presentationMode == .firstRun)
+        .accessibilityAddTraits(.isModal)
+        .onAppear {
+            permissionReadiness.refresh()
         }
         .onReceive(NotificationCenter.default.publisher(for: .locationAuthorizationDidChange)) { _ in
-            refreshLocationAuthorization()
+            permissionReadiness.refresh()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            refreshLocationAuthorization()
-            if currentPage == 3 && locationAuthorization != .authorizedAlways {
-                showsLocationPermissionAlert = true
-            }
+            permissionReadiness.refresh()
         }
-        .onChange(of: currentPage) { _, page in
-            if page > 3 && locationAuthorization != .authorizedAlways {
-                currentPage = 3
-                showsLocationPermissionAlert = true
-            }
-        }
-    }
-
-    private func refreshLocationAuthorization() {
-        locationAuthorization = CLLocationManager().authorizationStatus
     }
 
     @ViewBuilder
-    private func pageContent(_ page: Page) -> some View {
-        if let screenshotAsset = page.screenshotAsset {
-            VStack(spacing: 16) {
-                Spacer(minLength: 12)
+    private var stepContent: some View {
+        switch step {
+        case .intro:
+            introContent
+        case .location:
+            onboardingMessage(
+                symbol: "location.fill.viewfinder",
+                title: "到着を見守るために",
+                message: "アプリを閉じている間も目的地への到着を検知するため、位置情報の「常に許可」が必要です。許可はあとから設定でも変更できます。",
+                status: locationStatus
+            )
+        case .notification:
+            onboardingMessage(
+                symbol: "bell.badge.fill",
+                title: "到着をお知らせするために",
+                message: "目的地に近づいたことを、通知・音・バイブレーションでお知らせします。通知はあとから設定でも変更できます。",
+                status: notificationStatus
+            )
+        }
+    }
 
-                OnboardingScreenshot(assetName: screenshotAsset)
+    private var introContent: some View {
+        VStack(spacing: 24) {
+            Spacer(minLength: 12)
 
-                Text(page.title)
-                    .font(.title.bold())
-                    .multilineTextAlignment(.center)
-
-                Text(page.message)
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-
-                Spacer(minLength: 12)
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "bell.fill")
+                    .font(.system(size: heroSymbolSize, weight: .regular))
+                    .foregroundStyle(AppDesign.tint)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title)
+                    .foregroundStyle(AppDesign.tint)
+                    .background(Circle().fill(.background).padding(3))
+                    .offset(x: 8, y: -4)
             }
-        } else {
-            VStack(spacing: 24) {
-                Spacer()
-                Image(systemName: page.symbol)
-                    .font(.system(size: 92, weight: .regular))
+            .accessibilityHidden(true)
+
+            Text("目的地で、確実に起きる。")
+                .font(.largeTitle.bold())
+                .multilineTextAlignment(.center)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                .minimumScaleFactor(0.78)
+
+            Text("到着時に通知・音・バイブレーションでお知らせします。")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            HStack(alignment: .top, spacing: 10) {
+                onboardingFlowItem(
+                    symbol: "magnifyingglass",
+                    title: "さがす"
+                )
+                flowDivider
+                onboardingFlowItem(
+                    symbol: "mappin.circle.fill",
+                    title: "目的地を設定"
+                )
+                flowDivider
+                onboardingFlowItem(
+                    symbol: "bell.badge.fill",
+                    title: "到着をお知らせ"
+                )
+            }
+            .padding(.vertical, 8)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("場所を探す、目的地を設定する、到着をお知らせする")
+
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "info.circle")
+                    .font(.title2)
                     .foregroundStyle(AppDesign.tint)
                     .accessibilityHidden(true)
-                Text(page.title)
-                    .font(.largeTitle.bold())
-                    .multilineTextAlignment(.center)
-                Text(page.message)
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-                Spacer()
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("準備が必要です")
+                        .font(.headline)
+                    Text("次に、到着を見守るための設定を行います。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
             }
+            .padding(18)
+            .background(
+                Color(uiColor: .secondarySystemGroupedBackground),
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+            )
+
+            Spacer(minLength: 12)
         }
+        .frame(minHeight: 520)
     }
 
-    private func requestRequiredLocationAuthorization() {
-        if locationAuthorization == .notDetermined {
-            LocationManager.shared.locationManager.requestAlwaysAuthorization()
-        } else if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(settingsURL)
+    private func onboardingFlowItem(
+        symbol: String,
+        title: String
+    ) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.title2)
+                .foregroundStyle(AppDesign.tint)
+                .frame(width: 44, height: 44)
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
-    }
-}
-
-private struct OnboardingScreenshot: View {
-    let assetName: String
-
-    private let screenshotWidth: CGFloat = 208
-    private let originalSize = CGSize(width: 368, height: 800)
-    private let statusBarCrop: CGFloat = 64
-
-    private var screenshotHeight: CGFloat {
-        screenshotWidth * (originalSize.height - statusBarCrop) / originalSize.width
+        .frame(maxWidth: .infinity)
     }
 
-    var body: some View {
-        GeometryReader { proxy in
-            let scale = proxy.size.width / originalSize.width
-
-            Image(assetName)
-                .resizable()
-                .frame(
-                    width: proxy.size.width,
-                    height: originalSize.height * scale,
-                    alignment: .top
-                )
-                .offset(y: -statusBarCrop * scale)
-        }
-            .frame(width: screenshotWidth, height: screenshotHeight)
-            .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
-            }
-            .shadow(color: .black.opacity(0.12), radius: 16, y: 8)
-            .padding(.horizontal, 24)
+    private var flowDivider: some View {
+        Capsule()
+            .fill(Color.secondary.opacity(0.3))
+            .frame(width: 24, height: 1)
+            .padding(.top, 22)
             .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var controls: some View {
+        switch step {
+        case .intro:
+            primaryButton("準備を始める", identifier: "onboarding.prepare") {
+                move(to: .location)
+            }
+        case .location:
+            locationControls
+        case .notification:
+            notificationControls
+        }
+    }
+
+    @ViewBuilder
+    private var locationControls: some View {
+        let authorization = permissionReadiness.snapshot.locationAuthorization
+
+        switch authorization {
+        case .notDetermined:
+            primaryButton(
+                "位置情報を許可",
+                identifier: "onboarding.location.request"
+            ) {
+                hasAttemptedLocationRequest = true
+                permissionReadiness.requestAlwaysLocationAuthorization()
+            }
+
+            if hasAttemptedLocationRequest {
+                secondaryButton(
+                    "あとで設定する",
+                    identifier: "onboarding.location.continue"
+                ) {
+                    move(to: .notification)
+                }
+            }
+        case .authorizedAlways:
+            primaryButton(
+                "次へ",
+                identifier: "onboarding.location.continue"
+            ) {
+                move(to: .notification)
+            }
+        case .authorizedWhenInUse:
+            primaryButton(
+                "「常に許可」をリクエスト",
+                identifier: "onboarding.location.requestAlways"
+            ) {
+                hasAttemptedLocationRequest = true
+                permissionReadiness.requestAlwaysLocationAuthorization()
+            }
+            secondaryButton(
+                "あとで設定する",
+                identifier: "onboarding.location.continue"
+            ) {
+                move(to: .notification)
+            }
+        case .denied, .restricted:
+            primaryButton(
+                "通知の設定へ",
+                identifier: "onboarding.location.continue"
+            ) {
+                move(to: .notification)
+            }
+            if authorization == .denied {
+                secondaryButton("設定を開く", identifier: "onboarding.location.settings") {
+                    permissionReadiness.openAppSettings()
+                }
+            }
+        @unknown default:
+            primaryButton(
+                "通知の設定へ",
+                identifier: "onboarding.location.continue"
+            ) {
+                move(to: .notification)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var notificationControls: some View {
+        let authorization = permissionReadiness.snapshot.notificationAuthorization
+
+        switch authorization {
+        case .notDetermined:
+            primaryButton(
+                isRequestingNotification ? "確認中…" : "通知を許可",
+                identifier: "onboarding.notification.request"
+            ) {
+                hasAttemptedNotificationRequest = true
+                isRequestingNotification = true
+                permissionReadiness.requestNotificationAuthorization {
+                    isRequestingNotification = false
+                }
+            }
+            .disabled(isRequestingNotification)
+
+            if hasAttemptedNotificationRequest && !isRequestingNotification {
+                secondaryButton(
+                    "あとで設定する",
+                    identifier: "onboarding.complete"
+                ) {
+                    finish()
+                }
+            }
+        case .authorized, .provisional, .ephemeral:
+            primaryButton("はじめる", identifier: "onboarding.complete") {
+                finish()
+            }
+        case .denied:
+            primaryButton("はじめる", identifier: "onboarding.complete") {
+                finish()
+            }
+            secondaryButton("設定を開く", identifier: "onboarding.notification.settings") {
+                permissionReadiness.openAppSettings()
+            }
+        @unknown default:
+            primaryButton("はじめる", identifier: "onboarding.complete") {
+                finish()
+            }
+        }
+    }
+
+    private var locationStatus: (text: String, isReady: Bool)? {
+        switch permissionReadiness.snapshot.locationAuthorization {
+        case .authorizedAlways:
+            return ("「常に許可」になっています", true)
+        case .authorizedWhenInUse:
+            return ("現在は「このAppの使用中」です", false)
+        case .denied:
+            return ("位置情報は許可されていません", false)
+        case .restricted:
+            return ("この端末では位置情報が制限されています", false)
+        case .notDetermined:
+            return nil
+        @unknown default:
+            return ("位置情報の状態を確認できません", false)
+        }
+    }
+
+    private var notificationStatus: (text: String, isReady: Bool)? {
+        switch permissionReadiness.snapshot.notificationAuthorization {
+        case .authorized, .provisional, .ephemeral:
+            return ("通知は許可されています", true)
+        case .denied:
+            return ("通知は許可されていません", false)
+        case .notDetermined:
+            return nil
+        @unknown default:
+            return ("通知の状態を確認できません", false)
+        }
+    }
+
+    private func onboardingMessage(
+        symbol: String,
+        title: String,
+        message: String,
+        status: (text: String, isReady: Bool)? = nil
+    ) -> some View {
+        VStack(spacing: 24) {
+            Spacer(minLength: 24)
+            Image(systemName: symbol)
+                .font(.system(size: heroSymbolSize, weight: .regular))
+                .foregroundStyle(AppDesign.tint)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(.largeTitle.bold())
+                .multilineTextAlignment(.center)
+            Text(message)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            if let status {
+                Label(
+                    status.text,
+                    systemImage: status.isReady
+                        ? "checkmark.circle.fill"
+                        : "exclamationmark.triangle.fill"
+                )
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(status.isReady ? AppDesign.tint : Color.orange)
+                .multilineTextAlignment(.center)
+            }
+            Spacer(minLength: 24)
+        }
+        .frame(minHeight: 430)
+    }
+
+    private func primaryButton(
+        _ title: String,
+        identifier: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .fontWeight(.semibold)
+                .frame(maxWidth: .infinity, minHeight: 28)
+        }
+            .buttonStyle(.borderedProminent)
+            .tint(AppDesign.tint)
+            .controlSize(.large)
+            .accessibilityIdentifier(identifier)
+    }
+
+    private func secondaryButton(
+        _ title: String,
+        identifier: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(title, action: action)
+            .buttonStyle(.borderless)
+            .padding(.top, 10)
+            .accessibilityIdentifier(identifier)
+    }
+
+    private func move(to nextStep: Step) {
+        if reduceMotion {
+            step = nextStep
+        } else {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                step = nextStep
+            }
+        }
+        UIAccessibility.post(
+            notification: .screenChanged,
+            argument: nil
+        )
+    }
+
+    private func finish() {
+        onCompleted()
+        dismiss()
     }
 }

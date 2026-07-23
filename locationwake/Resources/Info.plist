@@ -12,6 +12,8 @@
 	<string>ca-app-pub-6138612098991276~8869358274</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>より適切な広告の表示と広告効果の測定のために、他社のアプリやWebサイトを横断したアクティビティの追跡許可を使用します。</string>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>

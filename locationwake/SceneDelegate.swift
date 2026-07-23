@@ -4,8 +4,6 @@ import SwiftUI
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
-    // シングルトンインスタンスを使用
-    let soundPlayer = SoundPlayer.shared
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = (scene as? UIWindowScene) else { return }
@@ -18,11 +16,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func sceneDidDisconnect(_ scene: UIScene) {}
 
-    func sceneDidBecomeActive(_ scene: UIScene) {
-        // アプリがアクティブになった際にサウンドを停止
-        soundPlayer.stopSound()
-        HapticManager.stop()
-    }
+    func sceneDidBecomeActive(_ scene: UIScene) {}
 
     func sceneWillResignActive(_ scene: UIScene) {}
 
