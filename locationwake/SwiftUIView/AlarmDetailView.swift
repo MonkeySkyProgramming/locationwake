@@ -204,8 +204,6 @@ struct AlarmDetailView: View {
             RadiusPickerControl(radius: $draft.radius)
         } header: {
             Text("到着範囲")
-        } footer: {
-            Text("現在値が候補にない場合は「カスタム」として表示します。")
         }
     }
 
