@@ -3,19 +3,31 @@ import MapKit
 import SwiftUI
 import UIKit
 
+struct AlarmEditorRoute: Hashable {
+    let alarm: Alarm
+    let isNew: Bool
+
+    static func == (lhs: AlarmEditorRoute, rhs: AlarmEditorRoute) -> Bool {
+        lhs.alarm.id == rhs.alarm.id && lhs.isNew == rhs.isNew
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(alarm.id)
+        hasher.combine(isNew)
+    }
+}
+
 enum NavigationRoute: Hashable {
     case locationSelection
     case settings
+    case alarmEditor(AlarmEditorRoute)
 }
 
 enum AppSheetDestination: Identifiable {
-    case alarmEditor(alarm: Alarm, isNew: Bool)
     case onboardingHelp
 
     var id: String {
         switch self {
-        case .alarmEditor(let alarm, let isNew):
-            return "alarm-editor-\(alarm.id)-\(isNew)"
         case .onboardingHelp:
             return "onboarding-help"
         }
@@ -33,7 +45,7 @@ final class NavigationModel: ObservableObject {
     @Published var presentedSheet: AppSheetDestination?
 
     func presentAlarmEditor(_ alarm: Alarm, isNew: Bool) {
-        presentedSheet = .alarmEditor(alarm: alarm, isNew: isNew)
+        path.append(.alarmEditor(AlarmEditorRoute(alarm: alarm, isNew: isNew)))
     }
 }
 
@@ -67,6 +79,13 @@ struct AlarmListSwiftUIView: View {
                                     LocationSelectionView()
                                 case .settings:
                                     SettingView()
+                                case .alarmEditor(let editor):
+                                    AlarmDetailView(
+                                        alarm: editor.alarm,
+                                        isNew: editor.isNew
+                                    )
+                                        .environmentObject(viewModel)
+                                        .environmentObject(navigationModel)
                                 }
                             }
                     }
@@ -92,12 +111,6 @@ struct AlarmListSwiftUIView: View {
         ) { destination in
             Group {
                 switch destination {
-                case .alarmEditor(let alarm, let isNew):
-                    NavigationStack {
-                        AlarmDetailView(alarm: alarm, isNew: isNew)
-                    }
-                    .environmentObject(viewModel)
-                    .environmentObject(navigationModel)
                 case .onboardingHelp:
                     OnboardingView(presentationMode: .help)
                 }

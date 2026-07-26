@@ -72,8 +72,10 @@ struct AlarmDetailView: View {
         .navigationTitle(isNewAlarm ? "新しいアラーム" : "アラームを編集")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("キャンセル", action: cancel)
+            if isNewAlarm {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル", action: cancel)
+                }
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存", action: saveCurrentAlarm)

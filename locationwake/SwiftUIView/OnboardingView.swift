@@ -59,6 +59,7 @@ struct OnboardingView: View {
                     Button("閉じる") {
                         dismiss()
                     }
+                    .tint(AppDesign.tint)
                     .frame(minWidth: 44, minHeight: 44)
                     .padding(.horizontal, 12)
                     .padding(.top, 12)

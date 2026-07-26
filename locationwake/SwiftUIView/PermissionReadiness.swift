@@ -108,7 +108,13 @@ struct PermissionReadinessSnapshot: Equatable {
     }
 
     var isReadyForReliableArrival: Bool {
-        hasLoadedNotificationSettings && issues.isEmpty
+        // 「使用中のみ」はジオフェンスのバックグラウンド監視に十分ではないため、
+        // 不足項目の表示内容とは独立して「常に許可」を完了条件として固定する。
+        hasLoadedNotificationSettings
+            && hasAlwaysLocationAuthorization
+            && hasPreciseLocationAuthorization
+            && hasNotificationAuthorization
+            && hasNotificationSound
     }
 }
 
@@ -205,10 +211,12 @@ final class PermissionReadiness: NSObject, ObservableObject {
     }
 
     /// 必ず、位置情報が必要な理由を表示した後のユーザー操作から呼び出す。
+    /// 初回は iOS の段階的な許可フローに従い、まず「使用中のみ」を求める。
+    /// その許可後に同じ操作から「常に許可」へアップグレードする。
     func requestAlwaysLocationAuthorization() {
         switch locationManager.authorizationStatus {
         case .notDetermined:
-            locationManager.requestAlwaysAuthorization()
+            locationManager.requestWhenInUseAuthorization()
         case .authorizedWhenInUse:
             guard !defaults.bool(forKey: DefaultsKey.hasRequestedAlwaysUpgrade) else {
                 openAppSettings()

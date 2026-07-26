@@ -229,7 +229,7 @@ final class locationwakeTests: XCTestCase {
         )
     }
 
-    func testAlarmEditorSheetUsesAlarmIdAndModeForStableIdentity() {
+    func testAlarmEditorNavigationRouteUsesAlarmAndModeForStableIdentity() {
         let first = Alarm(
             id: "same-id",
             name: "First",
@@ -248,16 +248,16 @@ final class locationwakeTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            AppSheetDestination.alarmEditor(alarm: first, isNew: false).id,
-            "alarm-editor-same-id-false"
-        )
-        XCTAssertEqual(
-            AppSheetDestination.alarmEditor(alarm: first, isNew: true).id,
-            "alarm-editor-same-id-true"
+            NavigationRoute.alarmEditor(AlarmEditorRoute(alarm: first, isNew: false)),
+            NavigationRoute.alarmEditor(AlarmEditorRoute(alarm: first, isNew: false))
         )
         XCTAssertNotEqual(
-            AppSheetDestination.alarmEditor(alarm: first, isNew: false).id,
-            AppSheetDestination.alarmEditor(alarm: different, isNew: false).id
+            NavigationRoute.alarmEditor(AlarmEditorRoute(alarm: first, isNew: false)),
+            NavigationRoute.alarmEditor(AlarmEditorRoute(alarm: first, isNew: true))
+        )
+        XCTAssertNotEqual(
+            NavigationRoute.alarmEditor(AlarmEditorRoute(alarm: first, isNew: false)),
+            NavigationRoute.alarmEditor(AlarmEditorRoute(alarm: different, isNew: false))
         )
     }
 
@@ -2492,6 +2492,11 @@ final class locationwakeTests: XCTestCase {
             notificationAuthorization: .authorized,
             notificationSoundSetting: .disabled
         ))
+        XCTAssertFalse(SettingView.areArrivalPermissionsComplete(
+            locationAuthorization: .authorizedWhenInUse,
+            notificationAuthorization: .authorized,
+            notificationSoundSetting: .enabled
+        ))
     }
 
     func testPermissionReadinessPredicatesAndIssueOrdering() {
@@ -2528,6 +2533,11 @@ final class locationwakeTests: XCTestCase {
             ]
         )
         XCTAssertFalse(missing.isReadyForReliableArrival)
+
+        let whenInUseOtherwiseReady = makePermissionSnapshot(
+            locationAuthorization: .authorizedWhenInUse
+        )
+        XCTAssertFalse(whenInUseOtherwiseReady.isReadyForReliableArrival)
 
         let notificationsNotLoaded = makePermissionSnapshot(
             notificationAuthorization: .denied,
