@@ -8,7 +8,6 @@ enum PermissionReadinessIssue: String, CaseIterable, Identifiable {
     case preciseLocation
     case notificationAuthorization
     case notificationSound
-    case backgroundRefresh
 
     var id: String { rawValue }
 
@@ -22,8 +21,6 @@ enum PermissionReadinessIssue: String, CaseIterable, Identifiable {
             return "通知を許可してください"
         case .notificationSound:
             return "通知のサウンドをオンにしてください"
-        case .backgroundRefresh:
-            return "Appのバックグラウンド更新をオンにしてください"
         }
     }
 
@@ -37,8 +34,6 @@ enum PermissionReadinessIssue: String, CaseIterable, Identifiable {
             return "bell.slash.fill"
         case .notificationSound:
             return "speaker.slash.fill"
-        case .backgroundRefresh:
-            return "arrow.clockwise.circle.fill"
         }
     }
 }
@@ -109,9 +104,6 @@ struct PermissionReadinessSnapshot: Equatable {
             && !hasNotificationSound {
             result.append(.notificationSound)
         }
-        if !hasBackgroundRefresh {
-            result.append(.backgroundRefresh)
-        }
         return result
     }
 
@@ -127,13 +119,22 @@ final class PermissionReadiness: NSObject, ObservableObject {
 
     private let locationManager: CLLocationManager
     private let notificationCenter: UNUserNotificationCenter
+    private let defaults: UserDefaults
+    private var refreshGeneration = 0
+    private var pendingRefreshCompletions: [() -> Void] = []
+
+    private enum DefaultsKey {
+        static let hasRequestedAlwaysUpgrade = "hasRequestedAlwaysLocationUpgrade"
+    }
 
     init(
         locationManager: CLLocationManager = LocationManager.shared.locationManager,
-        notificationCenter: UNUserNotificationCenter = .current()
+        notificationCenter: UNUserNotificationCenter = .current(),
+        defaults: UserDefaults = .standard
     ) {
         self.locationManager = locationManager
         self.notificationCenter = notificationCenter
+        self.defaults = defaults
         snapshot = PermissionReadinessSnapshot(
             locationAuthorization: locationManager.authorizationStatus,
             locationAccuracyAuthorization: locationManager.accuracyAuthorization,
@@ -176,24 +177,44 @@ final class PermissionReadiness: NSObject, ObservableObject {
             notificationSoundSetting: snapshot.notificationSoundSetting,
             hasLoadedNotificationSettings: snapshot.hasLoadedNotificationSettings
         )
+        if let completion {
+            pendingRefreshCompletions.append(completion)
+        }
+        refreshGeneration += 1
+        let generation = refreshGeneration
 
         notificationCenter.getNotificationSettings { [weak self] settings in
             DispatchQueue.main.async {
                 guard let self else { return }
+                guard generation == self.refreshGeneration else { return }
                 self.snapshot = self.makeSnapshot(
                     notificationAuthorization: settings.authorizationStatus,
                     notificationSoundSetting: settings.soundSetting,
                     hasLoadedNotificationSettings: true
                 )
-                completion?()
+                let completions = self.pendingRefreshCompletions
+                self.pendingRefreshCompletions.removeAll()
+                completions.forEach { $0() }
             }
         }
+    }
+
+    var canRequestAlwaysUpgradeInApp: Bool {
+        snapshot.locationAuthorization == .authorizedWhenInUse
+            && !defaults.bool(forKey: DefaultsKey.hasRequestedAlwaysUpgrade)
     }
 
     /// 必ず、位置情報が必要な理由を表示した後のユーザー操作から呼び出す。
     func requestAlwaysLocationAuthorization() {
         switch locationManager.authorizationStatus {
-        case .notDetermined, .authorizedWhenInUse:
+        case .notDetermined:
+            locationManager.requestAlwaysAuthorization()
+        case .authorizedWhenInUse:
+            guard !defaults.bool(forKey: DefaultsKey.hasRequestedAlwaysUpgrade) else {
+                openAppSettings()
+                return
+            }
+            defaults.set(true, forKey: DefaultsKey.hasRequestedAlwaysUpgrade)
             locationManager.requestAlwaysAuthorization()
         case .authorizedAlways, .denied, .restricted:
             refresh()

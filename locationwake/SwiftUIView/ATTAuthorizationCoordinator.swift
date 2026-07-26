@@ -1,4 +1,5 @@
 import AppTrackingTransparency
+import Combine
 import Foundation
 import UIKit
 
@@ -39,26 +40,15 @@ struct ATTRequestEligibility {
     }
 }
 
-final class ATTAuthorizationCoordinator {
+final class ATTAuthorizationCoordinator: ObservableObject {
     static let shared = ATTAuthorizationCoordinator()
 
+    @Published private(set) var authorizationStatus: ATTrackingManager.AuthorizationStatus
+
     private var hasRequestedThisSession = false
-    private var alarmSavedObserver: NSObjectProtocol?
 
     private init() {
-        alarmSavedObserver = NotificationCenter.default.addObserver(
-            forName: .alarmSaved,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.requestIfEligible()
-        }
-    }
-
-    deinit {
-        if let alarmSavedObserver {
-            NotificationCenter.default.removeObserver(alarmSavedObserver)
-        }
+        authorizationStatus = ATTrackingManager.trackingAuthorizationStatus
     }
 
     /// アプリがアクティブで、オンボーディングやアラーム保存が完了した後に呼び出す。
@@ -86,6 +76,23 @@ final class ATTAuthorizationCoordinator {
         }
 
         let status = authorizationStatus ?? ATTrackingManager.trackingAuthorizationStatus
+        let previousStatus = self.authorizationStatus
+        if previousStatus != status {
+            self.authorizationStatus = status
+        }
+        if status != .notDetermined {
+            defaults.set(
+                true,
+                forKey: AppLifecycleDefaultsKey.hasRequestedTrackingAuthorization
+            )
+            if previousStatus == .notDetermined {
+                NotificationCenter.default.post(
+                    name: .trackingAuthorizationDidResolve,
+                    object: status
+                )
+            }
+            return false
+        }
         let alarmCount = savedAlarmCount ?? AlarmStore.load(from: defaults).count
         let isEligible = ATTRequestEligibility.shouldRequest(
             authorizationStatus: status,
@@ -101,13 +108,33 @@ final class ATTAuthorizationCoordinator {
         guard isEligible else { return false }
 
         hasRequestedThisSession = true
-        defaults.set(
-            true,
-            forKey: AppLifecycleDefaultsKey.hasRequestedTrackingAuthorization
-        )
-        ATTrackingManager.requestTrackingAuthorization { status in
-            print("ATT ステータス: \(status.rawValue)")
+        ATTrackingManager.requestTrackingAuthorization { [weak self] status in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.authorizationStatus = status
+                if status == .notDetermined {
+                    self.hasRequestedThisSession = false
+                } else {
+                    defaults.set(
+                        true,
+                        forKey: AppLifecycleDefaultsKey.hasRequestedTrackingAuthorization
+                    )
+                    NotificationCenter.default.post(
+                        name: .trackingAuthorizationDidResolve,
+                        object: status
+                    )
+                }
+#if DEBUG
+                print("ATT ステータス: \(status.rawValue)")
+#endif
+            }
         }
         return true
     }
+}
+
+extension Notification.Name {
+    static let trackingAuthorizationDidResolve = Notification.Name(
+        "TrackingAuthorizationDidResolve"
+    )
 }

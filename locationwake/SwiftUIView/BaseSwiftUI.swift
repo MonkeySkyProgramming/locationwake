@@ -3,13 +3,15 @@ import GoogleMobileAds
 
 struct BaseContainerView<Content: View>: View {
     let content: Content
+    @ObservedObject private var trackingAuthorization = ATTAuthorizationCoordinator.shared
 
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
     }
 
     var body: some View {
-        if AppRuntime.shouldShowBannerAds {
+        if AppRuntime.shouldShowBannerAds
+            && trackingAuthorization.authorizationStatus != .notDetermined {
             content
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     VStack(spacing: 0) {

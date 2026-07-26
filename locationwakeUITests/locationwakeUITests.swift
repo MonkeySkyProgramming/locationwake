@@ -45,7 +45,9 @@ final class locationwakeUITests: XCTestCase {
         app.launchArguments.append("--show-onboarding")
         app.launch()
 
-        let prepareButton = app.buttons["準備を始める"]
+        let prepareButton = app.buttons.matching(
+            identifier: "onboarding.prepare"
+        ).firstMatch
         XCTAssertTrue(prepareButton.waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["あとで"].exists)
         XCTAssertFalse(app.buttons["まず使ってみる"].exists)
@@ -54,7 +56,9 @@ final class locationwakeUITests: XCTestCase {
         prepareButton.tap()
 
         XCTAssertTrue(
-            app.buttons["位置情報を許可"].waitForExistence(timeout: 10)
+            app.buttons.matching(
+                identifier: "onboarding.location.request"
+            ).firstMatch.waitForExistence(timeout: 10)
         )
     }
 
@@ -67,10 +71,44 @@ final class locationwakeUITests: XCTestCase {
         ).firstMatch
         XCTAssertTrue(stopButton.waitForExistence(timeout: 30))
         XCTAssertTrue(app.staticTexts["テスト目的地に到着しました"].exists)
+        XCTAssertFalse(app.navigationBars["アラーム"].exists)
 
         stopButton.tap()
 
         XCTAssertTrue(stopButton.waitForNonExistence(timeout: 10))
         XCTAssertTrue(app.navigationBars["アラーム"].exists)
+    }
+
+    func testDirtyEditorAsksBeforeDiscardingChanges() throws {
+        app.launchArguments.append("--ui-test-seed-alarm")
+        app.launch()
+
+        let savedAlarm = app.buttons.matching(
+            identifier: "home.alarm.ui-test-saved-alarm"
+        ).firstMatch
+        XCTAssertTrue(savedAlarm.waitForExistence(timeout: 10))
+        savedAlarm.tap()
+
+        XCTAssertTrue(app.navigationBars["アラームを編集"].waitForExistence(timeout: 10))
+        let nameField = app.textFields["alarmEditor.name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 10))
+        nameField.tap()
+        nameField.typeText(" 変更")
+
+        app.buttons["キャンセル"].tap()
+        XCTAssertTrue(app.staticTexts["変更を破棄しますか？"].waitForExistence(timeout: 10))
+        app.buttons["編集を続ける"].tap()
+        XCTAssertTrue(app.navigationBars["アラームを編集"].exists)
+
+        app.buttons["キャンセル"].tap()
+        XCTAssertTrue(app.buttons["変更を破棄"].waitForExistence(timeout: 10))
+        app.buttons["変更を破棄"].tap()
+
+        XCTAssertTrue(app.navigationBars["アラーム"].waitForExistence(timeout: 10))
+        let restoredAlarm = app.buttons.matching(
+            identifier: "home.alarm.ui-test-saved-alarm"
+        ).firstMatch
+        XCTAssertTrue(restoredAlarm.exists)
+        XCTAssertEqual(restoredAlarm.label, "テスト駅")
     }
 }

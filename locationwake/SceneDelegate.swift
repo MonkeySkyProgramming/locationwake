@@ -3,6 +3,8 @@ import SwiftUI
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
+    private static var hasRecordedForegroundLaunch = false
+
     var window: UIWindow?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
@@ -16,11 +18,23 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func sceneDidDisconnect(_ scene: UIScene) {}
 
-    func sceneDidBecomeActive(_ scene: UIScene) {}
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        guard !AppRuntime.shouldSuppressExternalSideEffects else { return }
+        LocationManager.shared.restoreSavedAlarms(reason: "sceneBecameActive")
+        AlarmActivityCenter.shared.presentCurrentAlarmIfNeeded()
+        ATTAuthorizationCoordinator.shared.requestIfEligible()
+    }
 
     func sceneWillResignActive(_ scene: UIScene) {}
 
-    func sceneWillEnterForeground(_ scene: UIScene) {}
+    func sceneWillEnterForeground(_ scene: UIScene) {
+        guard !AppRuntime.shouldSuppressExternalSideEffects,
+              !Self.hasRecordedForegroundLaunch else {
+            return
+        }
+        Self.hasRecordedForegroundLaunch = true
+        AppLaunchCounter.recordColdLaunch()
+    }
 
     func sceneDidEnterBackground(_ scene: UIScene) {}
 }

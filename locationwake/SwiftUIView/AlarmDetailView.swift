@@ -34,7 +34,6 @@ struct AlarmDetailView: View {
     @State private var showsDiscardConfirmation = false
     @State private var showsLimitAlert = false
     @State private var saveErrorMessage: String?
-    @State private var attemptedSave = false
     @State private var monitoringFailure: String?
 
     @Environment(\.dismiss) private var dismiss
@@ -80,7 +79,11 @@ struct AlarmDetailView: View {
                 Button("保存", action: saveCurrentAlarm)
                     .fontWeight(.semibold)
                     .disabled(trimmedName.isEmpty)
-                    .accessibilityHint("アラームの設定を保存します")
+                    .accessibilityHint(
+                        trimmedName.isEmpty
+                            ? "保存するにはアラーム名を入力してください"
+                            : "アラームの設定を保存します"
+                    )
             }
         }
         .interactiveDismissDisabled(isDirty)
@@ -91,15 +94,11 @@ struct AlarmDetailView: View {
             )
             .frame(width: 0, height: 0)
         }
-        .confirmationDialog(
-            "変更を破棄しますか？",
-            isPresented: $showsDiscardConfirmation,
-            titleVisibility: .visible
-        ) {
+        .alert("変更を破棄しますか？", isPresented: $showsDiscardConfirmation) {
+            Button("編集を続ける", role: .cancel) {}
             Button("変更を破棄", role: .destructive) {
                 dismiss()
             }
-            Button("編集を続ける", role: .cancel) {}
         } message: {
             Text("保存していない変更は失われます。")
         }
@@ -140,13 +139,14 @@ struct AlarmDetailView: View {
                     .textInputAutocapitalization(.words)
                     .submitLabel(.done)
                     .accessibilityLabel("アラーム名")
+                    .accessibilityIdentifier("alarmEditor.name")
 
                 if !draft.name.isEmpty {
                     Button {
                         draft.name = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.primary)
                             .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
@@ -154,11 +154,19 @@ struct AlarmDetailView: View {
                 }
             }
 
-            if attemptedSave && trimmedName.isEmpty {
-                Label("アラーム名を入力してください", systemImage: "exclamationmark.circle.fill")
+            if trimmedName.isEmpty {
+                Label {
+                    Text("保存するにはアラーム名を入力してください")
+                        .foregroundStyle(.primary)
+                } icon: {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundStyle(.red)
+                }
                     .font(.footnote)
-                    .foregroundStyle(.red)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("保存できません。アラーム名を入力してください")
                     .accessibilityAddTraits(.isStaticText)
+                    .accessibilityIdentifier("alarmEditor.nameValidation")
             }
         } header: {
             Text("アラーム名")
@@ -239,6 +247,7 @@ struct AlarmDetailView: View {
                 } label: {
                     Label("サウンド", systemImage: "music.note")
                 }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
         } header: {
             Text("通知方法")
@@ -266,6 +275,7 @@ struct AlarmDetailView: View {
                         systemImage: "arrow.triangle.2.circlepath"
                     )
                 }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
         }
     }
@@ -309,7 +319,6 @@ struct AlarmDetailView: View {
     }
 
     private func saveCurrentAlarm() {
-        attemptedSave = true
         guard !trimmedName.isEmpty else {
             UIAccessibility.post(
                 notification: .announcement,
@@ -318,7 +327,15 @@ struct AlarmDetailView: View {
             return
         }
 
-        var savedAlarms = AlarmStore.load()
+        let loadResult = AlarmStore.loadResult()
+        guard case .success(var savedAlarms) = loadResult else {
+            if case .failure(let error) = loadResult {
+                saveErrorMessage = error.localizedDescription
+            } else {
+                saveErrorMessage = "保存したアラームを読み込めませんでした。"
+            }
+            return
+        }
         let existingIndex = savedAlarms.firstIndex(where: { $0.id == alarmID })
 
         if isNewAlarm {
@@ -337,8 +354,6 @@ struct AlarmDetailView: View {
         if let existingIndex {
             // 発火中に状態が変わる可能性があるため、保存直前の最新値へ編集項目だけを反映する。
             var latest = savedAlarms[existingIndex]
-            let destinationChanged = latest.location != draft.location
-                || latest.geofenceRadius != Alarm.normalizedRadius(draft.radius)
 
             latest.name = trimmedName
             latest.repeatWeekdays = Alarm.normalizedWeekdays(
@@ -350,7 +365,9 @@ struct AlarmDetailView: View {
             latest.location = draft.location
             latest.radius = Alarm.normalizedRadius(draft.radius)
 
-            if destinationChanged && latest.isAlarmEnabled {
+            // 明示的に保存した時は、すでに領域内でも即発火させず、
+            // 新しい監視世代で「退出後の再入場」を待つ。
+            if latest.isAlarmEnabled {
                 latest = LocationManager.preparedForInitialStateCheck(
                     latest,
                     currentLocation: currentLocation
@@ -378,7 +395,13 @@ struct AlarmDetailView: View {
             savedAlarm = newAlarm
         }
 
-        AlarmStore.save(savedAlarms)
+        switch AlarmStore.save(savedAlarms) {
+        case .success:
+            break
+        case .failure(let error):
+            saveErrorMessage = error.localizedDescription
+            return
+        }
         viewModel.loadAlarms()
         if !AppRuntime.shouldSuppressExternalSideEffects {
             LocationManager.shared.startMonitoring(alarms: savedAlarms)
@@ -449,6 +472,7 @@ struct SoundSelectionView: View {
                                         .foregroundStyle(AppDesign.tint)
                                 }
                             }
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -559,6 +583,7 @@ struct RepeatWeekdaySelectionView: View {
                         .foregroundStyle(AppDesign.tint)
                 }
             }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -1,8 +1,19 @@
+import CoreFoundation
 import Foundation
 
 struct Location: Codable, Equatable {
     var latitude: Double
     var longitude: Double
+}
+
+struct PendingArrivalDelivery: Codable, Equatable, Identifiable {
+    let occurrenceID: String
+    var shouldRing: Bool?
+    /// falseは鳴動予約を保存済みだが再生開始前、trueは再生開始済み。
+    /// nilは旧データまたは通知のみを表す。
+    var didActivateRinging: Bool? = nil
+
+    var id: String { occurrenceID }
 }
 
 struct Alarm: Codable, Identifiable, Equatable {
@@ -27,6 +38,20 @@ struct Alarm: Codable, Identifiable, Equatable {
     var hasTriggeredUntilExit: Bool = false // 領域から出るまでトリガー禁止
     /// 新規保存・目的地変更・再有効化の直後に、現在が領域内かを確定するまで発火を保留する。
     var needsInitialStateCheck: Bool = false
+    /// Core Location の遅延 callback を、現在の保存・再有効化世代と照合するためのID。
+    var monitoringSessionID: String = UUID().uuidString
+    /// 保存前に取得された位置で初期状態を誤って解決しないための開始時刻。
+    var initialStateCheckBeganAt: Date?
+    /// 発火状態の保存後、通知・鳴動の配送が完了するまで保持するoutbox ID。
+    var pendingArrivalOccurrenceID: String?
+    /// nilは配送判定前、trueは一次鳴動、falseは後続通知を表す。
+    var pendingArrivalShouldRing: Bool?
+    /// 同じ繰り返しalarmで前回の通知登録が失敗していても、次の到着を失わない配送queue。
+    var pendingArrivalDeliveries: [PendingArrivalDelivery] = []
+
+    var isArrivalDeliveryPending: Bool {
+        !pendingArrivalDeliveries.isEmpty || pendingArrivalOccurrenceID != nil
+    }
 
     static func normalizedRadius(_ radius: Double?) -> Double? {
         guard let radius else { return nil }
@@ -45,16 +70,122 @@ struct Alarm: Codable, Identifiable, Equatable {
         }
     }
 
-    mutating func prepareForInitialStateCheck() {
+    mutating func prepareForInitialStateCheck(
+        sessionID: String = UUID().uuidString,
+        now: Date = Date()
+    ) {
         hasTriggered = false
         hasTriggeredUntilExit = false
         needsInitialStateCheck = true
+        monitoringSessionID = sessionID.isEmpty ? UUID().uuidString : sessionID
+        initialStateCheckBeganAt = now
     }
 
     mutating func resolveInitialState(isInside: Bool) {
         needsInitialStateCheck = false
         hasTriggered = false
         hasTriggeredUntilExit = isInside
+        initialStateCheckBeganAt = nil
+    }
+
+    func canResolveInitialState(usingLocationTimestamp timestamp: Date) -> Bool {
+        guard needsInitialStateCheck else { return false }
+        guard let initialStateCheckBeganAt else {
+            // 旧バージョンで保留中だったデータは、最初の有効な観測で移行する。
+            return true
+        }
+        return timestamp >= initialStateCheckBeganAt
+    }
+
+    mutating func rebaseInitialStateCheckIfClockMovedBackward(now: Date) {
+        guard needsInitialStateCheck,
+              let beganAt = initialStateCheckBeganAt,
+              beganAt > now else {
+            return
+        }
+        initialStateCheckBeganAt = now
+    }
+
+    mutating func enqueueArrivalDelivery(occurrenceID: String) {
+        guard !occurrenceID.isEmpty,
+              !pendingArrivalDeliveries.contains(where: {
+                  $0.occurrenceID == occurrenceID
+              }) else {
+            return
+        }
+        pendingArrivalDeliveries.append(
+            PendingArrivalDelivery(
+                occurrenceID: occurrenceID,
+                shouldRing: nil
+            )
+        )
+        synchronizeLegacyPendingArrivalFields()
+    }
+
+    mutating func setArrivalDeliveryDecision(
+        occurrenceID: String,
+        shouldRing: Bool
+    ) {
+        guard let index = pendingArrivalDeliveries.firstIndex(where: {
+            $0.occurrenceID == occurrenceID
+        }) else {
+            return
+        }
+        pendingArrivalDeliveries[index].shouldRing = shouldRing
+        pendingArrivalDeliveries[index].didActivateRinging = shouldRing
+            ? false
+            : nil
+        synchronizeLegacyPendingArrivalFields()
+    }
+
+    mutating func markArrivalDeliveryActivated(occurrenceID: String) {
+        guard let index = pendingArrivalDeliveries.firstIndex(where: {
+            $0.occurrenceID == occurrenceID && $0.shouldRing == true
+        }) else {
+            return
+        }
+        pendingArrivalDeliveries[index].didActivateRinging = true
+        synchronizeLegacyPendingArrivalFields()
+    }
+
+    mutating func acknowledgeArrivalDelivery(occurrenceID: String) {
+        pendingArrivalDeliveries.removeAll {
+            $0.occurrenceID == occurrenceID
+        }
+        synchronizeLegacyPendingArrivalFields()
+    }
+
+    func arrivalDelivery(
+        occurrenceID: String
+    ) -> PendingArrivalDelivery? {
+        pendingArrivalDeliveries.first {
+            $0.occurrenceID == occurrenceID
+        }
+    }
+
+    private mutating func normalizePendingArrivalDeliveries() {
+        if pendingArrivalDeliveries.isEmpty,
+           let pendingArrivalOccurrenceID,
+           !pendingArrivalOccurrenceID.isEmpty {
+            pendingArrivalDeliveries = [
+                PendingArrivalDelivery(
+                    occurrenceID: pendingArrivalOccurrenceID,
+                    shouldRing: pendingArrivalShouldRing
+                )
+            ]
+        }
+
+        var usedOccurrenceIDs = Set<String>()
+        pendingArrivalDeliveries = pendingArrivalDeliveries.filter {
+            !$0.occurrenceID.isEmpty
+                && usedOccurrenceIDs.insert($0.occurrenceID).inserted
+        }
+        synchronizeLegacyPendingArrivalFields()
+    }
+
+    private mutating func synchronizeLegacyPendingArrivalFields() {
+        pendingArrivalOccurrenceID = pendingArrivalDeliveries.first?.occurrenceID
+        pendingArrivalShouldRing = pendingArrivalDeliveries.first?.shouldRing
     }
 
     static func normalizedWeekdays(_ weekdays: [Int]?) -> [Int]? {
@@ -64,20 +195,37 @@ struct Alarm: Codable, Identifiable, Equatable {
 
     static func normalizedForPersistence(_ alarms: [Alarm]) -> [Alarm] {
         var usedIDs = Set<String>()
+        var usedMonitoringSessionIDs = Set<String>()
         return alarms.map { alarm in
             var normalized = alarm
             if normalized.id.isEmpty || usedIDs.contains(normalized.id) {
                 normalized.id = UUID().uuidString
             }
             usedIDs.insert(normalized.id)
+            if normalized.monitoringSessionID.isEmpty
+                || usedMonitoringSessionIDs.contains(normalized.monitoringSessionID) {
+                let replacementSessionID = UUID().uuidString
+                if normalized.isAlarmEnabled {
+                    normalized.prepareForInitialStateCheck(
+                        sessionID: replacementSessionID
+                    )
+                } else {
+                    normalized.monitoringSessionID = replacementSessionID
+                }
+            }
+            usedMonitoringSessionIDs.insert(normalized.monitoringSessionID)
             normalized.radius = normalizedRadius(normalized.radius)
             normalized.repeatWeekdays = normalizedWeekdays(normalized.repeatWeekdays)
+            if !normalized.needsInitialStateCheck {
+                normalized.initialStateCheckBeganAt = nil
+            }
+            normalized.normalizePendingArrivalDeliveries()
             return normalized
         }
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, repeatWeekdays, sound, isAlarmEnabled, isSoundEnabled, isVibrationEnabled, location, radius, hasTriggered, hasTriggeredUntilExit, needsInitialStateCheck
+        case id, name, repeatWeekdays, sound, isAlarmEnabled, isSoundEnabled, isVibrationEnabled, location, radius, hasTriggered, hasTriggeredUntilExit, needsInitialStateCheck, monitoringSessionID, initialStateCheckBeganAt, pendingArrivalOccurrenceID, pendingArrivalShouldRing, pendingArrivalDeliveries
     }
 
     init(from decoder: Decoder) throws {
@@ -97,6 +245,40 @@ struct Alarm: Codable, Identifiable, Equatable {
         hasTriggered = try container.decodeIfPresent(Bool.self, forKey: .hasTriggered) ?? false
         hasTriggeredUntilExit = try container.decodeIfPresent(Bool.self, forKey: .hasTriggeredUntilExit) ?? false
         needsInitialStateCheck = try container.decodeIfPresent(Bool.self, forKey: .needsInitialStateCheck) ?? false
+        let decodedSessionID = try container.decodeIfPresent(
+            String.self,
+            forKey: .monitoringSessionID
+        )
+        let isLegacyMonitoringSession = decodedSessionID?.isEmpty != false
+        monitoringSessionID = isLegacyMonitoringSession
+            ? UUID().uuidString
+            : decodedSessionID ?? UUID().uuidString
+        initialStateCheckBeganAt = try container.decodeIfPresent(
+            Date.self,
+            forKey: .initialStateCheckBeganAt
+        )
+        if isLegacyMonitoringSession && isAlarmEnabled {
+            // 公開済み版のregion callbackと新実装の状態を混同しないよう、
+            // 更新後の最初のinside/outside判定までは発火を保留する。
+            needsInitialStateCheck = true
+            initialStateCheckBeganAt = Date()
+        }
+        if !needsInitialStateCheck {
+            initialStateCheckBeganAt = nil
+        }
+        pendingArrivalOccurrenceID = try container.decodeIfPresent(
+            String.self,
+            forKey: .pendingArrivalOccurrenceID
+        )
+        pendingArrivalShouldRing = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .pendingArrivalShouldRing
+        )
+        pendingArrivalDeliveries = try container.decodeIfPresent(
+            [PendingArrivalDelivery].self,
+            forKey: .pendingArrivalDeliveries
+        ) ?? []
+        normalizePendingArrivalDeliveries()
     }
 
     init(
@@ -111,7 +293,12 @@ struct Alarm: Codable, Identifiable, Equatable {
         radius: Double? = nil,
         hasTriggered: Bool = false,
         hasTriggeredUntilExit: Bool = false,
-        needsInitialStateCheck: Bool = false
+        needsInitialStateCheck: Bool = false,
+        monitoringSessionID: String = UUID().uuidString,
+        initialStateCheckBeganAt: Date? = nil,
+        pendingArrivalOccurrenceID: String? = nil,
+        pendingArrivalShouldRing: Bool? = nil,
+        pendingArrivalDeliveries: [PendingArrivalDelivery] = []
     ) {
         self.id = id.isEmpty ? UUID().uuidString : id
         self.name = name
@@ -125,19 +312,44 @@ struct Alarm: Codable, Identifiable, Equatable {
         self.hasTriggered = hasTriggered
         self.hasTriggeredUntilExit = hasTriggeredUntilExit
         self.needsInitialStateCheck = needsInitialStateCheck
+        self.monitoringSessionID = monitoringSessionID.isEmpty
+            ? UUID().uuidString
+            : monitoringSessionID
+        self.initialStateCheckBeganAt = needsInitialStateCheck
+            ? initialStateCheckBeganAt
+            : nil
+        self.pendingArrivalOccurrenceID = pendingArrivalOccurrenceID
+        self.pendingArrivalShouldRing = pendingArrivalOccurrenceID == nil
+            ? nil
+            : pendingArrivalShouldRing
+        self.pendingArrivalDeliveries = pendingArrivalDeliveries
+        normalizePendingArrivalDeliveries()
     }
 
     // default initializer remains available
 }
 
 enum AlarmStore {
+    // 公開版との永続化契約。アプリ更新時のUserDefaultsをそのまま読み込むため、
+    // このキーは移行手段を用意せず変更してはいけない。
     static let savedAlarmsKey = "SavedAlarms"
+    static let migrationBackupKey = "SavedAlarmsMigrationBackupV1"
+    static let corruptPrimaryBackupKey = "SavedAlarmsCorruptPrimaryV1"
+    static let recoveryInProgressKey = "SavedAlarmsRecoveryInProgressV1"
 
     enum LoadError: LocalizedError, Equatable {
         case unreadableData
 
         var errorDescription: String? {
             "保存したアラームを読み込めませんでした。もう一度お試しください。"
+        }
+    }
+
+    enum SaveError: LocalizedError, Equatable {
+        case encodingFailed
+
+        var errorDescription: String? {
+            "アラームを保存できませんでした。入力内容を確認して、もう一度お試しください。"
         }
     }
 
@@ -156,25 +368,156 @@ enum AlarmStore {
     static func loadResult(
         from defaults: UserDefaults = .standard
     ) -> Result<[Alarm], LoadError> {
-        guard let data = defaults.data(forKey: savedAlarmsKey) else {
+        guard let storedPrimary = defaults.object(
+            forKey: savedAlarmsKey
+        ) else {
             return .success([])
         }
-        guard let decoded = try? JSONDecoder().decode([LossyAlarm].self, from: data) else {
-            return .failure(.unreadableData)
+
+        guard let data = defaults.data(forKey: savedAlarmsKey) else {
+            return recoverFromMigrationBackup(
+                corruptedPrimary: storedPrimary,
+                defaults: defaults
+            ) ?? .failure(.unreadableData)
+        }
+        guard let payload = decodePayload(data) else {
+            return recoverFromMigrationBackup(
+                corruptedPrimary: storedPrimary,
+                defaults: defaults
+            ) ?? .failure(.unreadableData)
+        }
+
+        if payload.normalizedData != data {
+            if defaults.object(forKey: migrationBackupKey) == nil {
+                defaults.set(data, forKey: migrationBackupKey)
+            }
+            defaults.set(payload.normalizedData, forKey: savedAlarmsKey)
+        }
+        // 正規化データと移行前バックアップを保存できた後にだけ、旧版の
+        // 一時状態を削除する。途中終了でも公開版データを復元可能に保つ。
+        defaults.removeObject(forKey: recoveryInProgressKey)
+        migrateLegacyTriggerState(for: payload.alarms, defaults: defaults)
+        return .success(payload.alarms)
+    }
+
+    private struct DecodedPayload {
+        let alarms: [Alarm]
+        let normalizedData: Data
+    }
+
+    private static func decodePayload(_ data: Data) -> DecodedPayload? {
+        guard let decoded = try? JSONDecoder().decode(
+            [LossyAlarm].self,
+            from: data
+        ) else {
+            return nil
         }
 
         let alarms = Alarm.normalizedForPersistence(decoded.compactMap(\.value))
         let discardedCount = decoded.count - alarms.count
-        if discardedCount > 0 {
+        guard !((!decoded.isEmpty && alarms.isEmpty) || discardedCount > 0),
+              let normalizedData = try? encode(alarms) else {
+            return nil
+        }
+        return DecodedPayload(
+            alarms: alarms,
+            normalizedData: normalizedData
+        )
+    }
+
+    /// 正規化前の公開版データから自動復旧する。破損したprimaryも別キーへ
+    /// write-onceで保全し、復旧によって調査可能な元データを失わない。
+    private static func recoverFromMigrationBackup(
+        corruptedPrimary: Any?,
+        defaults: UserDefaults
+    ) -> Result<[Alarm], LoadError>? {
+        guard let backupData = defaults.data(forKey: migrationBackupKey),
+              let payload = decodePayload(backupData),
+              let corruptedPrimary else {
+            return nil
+        }
+
+        if let existingCorruptPrimary = defaults.object(
+            forKey: corruptPrimaryBackupKey
+        ) {
+            // 明示的なtransaction markerがあり、snapshotと現primaryが
+            // 型も含めて同一の場合だけ、中断した初回復旧を再開する。
+            guard defaults.string(forKey: recoveryInProgressKey) != nil else {
+                defaults.removeObject(forKey: recoveryInProgressKey)
+                return nil
+            }
+            guard storedValuesAreStrictlyEqual(
+                existingCorruptPrimary,
+                corruptedPrimary
+            ) else {
+                // snapshot後にprimaryが変わった場合は別の破損として扱い、
+                // 古いbackupを後から誤適用しないようtransactionを破棄する。
+                defaults.removeObject(forKey: recoveryInProgressKey)
+                return nil
+            }
+        } else {
+            if defaults.string(forKey: recoveryInProgressKey) == nil {
+                defaults.set(
+                    UUID().uuidString,
+                    forKey: recoveryInProgressKey
+                )
+            }
+            defaults.set(corruptedPrimary, forKey: corruptPrimaryBackupKey)
+        }
+        defaults.set(payload.normalizedData, forKey: savedAlarmsKey)
+        defaults.removeObject(forKey: recoveryInProgressKey)
+        migrateLegacyTriggerState(for: payload.alarms, defaults: defaults)
 #if DEBUG
-            print("⚠️ event=invalidSavedAlarmsDiscarded count=\(discardedCount)")
+        print("ℹ️ event=alarmStoreRecoveredFromMigrationBackup count=\(payload.alarms.count)")
 #endif
+        return .success(payload.alarms)
+    }
+
+    private static func storedValuesAreStrictlyEqual(
+        _ lhs: Any,
+        _ rhs: Any
+    ) -> Bool {
+        switch (lhs, rhs) {
+        case let (lhsData as Data, rhsData as Data):
+            return lhsData == rhsData
+        case let (lhsString as String, rhsString as String):
+            return lhsString == rhsString
+        case let (lhsDate as Date, rhsDate as Date):
+            return lhsDate == rhsDate
+        case let (lhsArray as [Any], rhsArray as [Any]):
+            guard lhsArray.count == rhsArray.count else { return false }
+            return zip(lhsArray, rhsArray).allSatisfy {
+                storedValuesAreStrictlyEqual($0, $1)
+            }
+        case let (
+            lhsDictionary as [String: Any],
+            rhsDictionary as [String: Any]
+        ):
+            guard lhsDictionary.count == rhsDictionary.count,
+                  Set(lhsDictionary.keys) == Set(rhsDictionary.keys) else {
+                return false
+            }
+            return lhsDictionary.allSatisfy { key, lhsValue in
+                guard let rhsValue = rhsDictionary[key] else { return false }
+                return storedValuesAreStrictlyEqual(lhsValue, rhsValue)
+            }
+        case let (lhsNumber as NSNumber, rhsNumber as NSNumber):
+            let lhsIsBoolean = CFGetTypeID(lhsNumber) == CFBooleanGetTypeID()
+            let rhsIsBoolean = CFGetTypeID(rhsNumber) == CFBooleanGetTypeID()
+            return lhsIsBoolean == rhsIsBoolean
+                && String(cString: lhsNumber.objCType)
+                == String(cString: rhsNumber.objCType)
+                && lhsNumber.isEqual(rhsNumber)
+        default:
+            return false
         }
-        migrateLegacyTriggerState(for: alarms, defaults: defaults)
-        if let normalizedData = try? JSONEncoder().encode(alarms), normalizedData != data {
-            defaults.set(normalizedData, forKey: savedAlarmsKey)
-        }
-        return .success(alarms)
+    }
+
+    private static func encode(_ alarms: [Alarm]) throws -> Data {
+        let encoder = JSONEncoder()
+        // 同じ状態を読み込むたびにkey順だけで再書き込みしないよう固定する。
+        encoder.outputFormatting = [.sortedKeys]
+        return try encoder.encode(alarms)
     }
 
     private struct LossyAlarm: Decodable {
@@ -185,10 +528,21 @@ enum AlarmStore {
         }
     }
 
-    static func save(_ alarms: [Alarm], to defaults: UserDefaults = .standard) {
+    @discardableResult
+    static func save(
+        _ alarms: [Alarm],
+        to defaults: UserDefaults = .standard
+    ) -> Result<Void, SaveError> {
         let normalized = Alarm.normalizedForPersistence(alarms)
-        if let data = try? JSONEncoder().encode(normalized) {
+        do {
+            let data = try encode(normalized)
             defaults.set(data, forKey: savedAlarmsKey)
+            return .success(())
+        } catch {
+#if DEBUG
+            print("⚠️ event=alarmStoreSaveFailed reason=\(error.localizedDescription)")
+#endif
+            return .failure(.encodingFailed)
         }
     }
 

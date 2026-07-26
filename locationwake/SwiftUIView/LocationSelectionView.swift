@@ -16,6 +16,12 @@ struct LocationSelectionView: View {
         case failure(query: String, message: String)
     }
 
+    private enum SearchOutcomeFocus: Hashable {
+        case results
+        case empty
+        case failure
+    }
+
     @State private var searchText = ""
     @State private var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 34.6873, longitude: 135.5262),
@@ -29,6 +35,7 @@ struct LocationSelectionView: View {
     @State private var activeSearch: MKLocalSearch?
     @State private var searchGeneration = 0
     @State private var lastSubmittedQuery = ""
+    @AccessibilityFocusState private var searchOutcomeFocus: SearchOutcomeFocus?
     @AppStorage("defaultRadius") private var defaultRadius: Double = Alarm.defaultGeofenceRadius
     @AppStorage("isSoundEnabled") private var defaultSoundEnabled: Bool = true
     @EnvironmentObject private var navigationModel: NavigationModel
@@ -79,7 +86,7 @@ struct LocationSelectionView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("検索範囲の地図")
             .accessibilityValue(mapAccessibilityValue)
-            .accessibilityHint("地図を移動すると、次に検索する範囲が変わります")
+            .accessibilityHint("目的地は検索結果の一覧から選べます")
             .accessibilityIdentifier("locationSelection.map")
 
             searchContent
@@ -135,7 +142,9 @@ struct LocationSelectionView: View {
 
         case .empty(let query):
             ContentUnavailableView {
-                Label("場所が見つかりません", systemImage: "magnifyingglass")
+                Label("検索結果は0件です", systemImage: "magnifyingglass")
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityFocused($searchOutcomeFocus, equals: .empty)
             } description: {
                 Text("「\(query)」に一致する場所はありません。検索語や地図の範囲を変えてください。")
             }
@@ -145,6 +154,8 @@ struct LocationSelectionView: View {
         case .failure(let query, let message):
             ContentUnavailableView {
                 Label("検索できませんでした", systemImage: "wifi.exclamationmark")
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityFocused($searchOutcomeFocus, equals: .failure)
             } description: {
                 Text(message)
             } actions: {
@@ -152,6 +163,7 @@ struct LocationSelectionView: View {
                     performSearch(searchText: query)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(AppDesign.prominentButtonTint)
                 .controlSize(.large)
                 .accessibilityHint("同じ検索語でもう一度検索します")
                 .accessibilityIdentifier("locationSelection.retry")
@@ -163,7 +175,7 @@ struct LocationSelectionView: View {
 
     private var resultList: some View {
         List {
-            Section("検索結果") {
+            Section {
                 ForEach(Array(resultItems.enumerated()), id: \.element.id) { index, item in
                     Button {
                         navigationModel.presentAlarmEditor(alarm(for: item), isNew: true)
@@ -178,6 +190,10 @@ struct LocationSelectionView: View {
                     .accessibilityHint("新しいアラームの編集画面を開きます")
                     .accessibilityIdentifier("locationSelection.result.\(index)")
                 }
+            } header: {
+                Text("検索結果（\(resultItems.count)件）")
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityFocused($searchOutcomeFocus, equals: .results)
             }
 
         }
@@ -256,6 +272,7 @@ struct LocationSelectionView: View {
         cancelActiveSearch()
         lastSubmittedQuery = query
         searchState = .loading(query: query)
+        searchOutcomeFocus = nil
 
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
@@ -280,12 +297,14 @@ struct LocationSelectionView: View {
                         query: query,
                         message: error?.localizedDescription ?? "通信環境を確認して、もう一度お試しください。"
                     )
+                    self.moveAccessibilityFocus(to: .failure)
                     return
                 }
 
                 let items = response.mapItems.map(IdentifiableMapItem.init(mapItem:))
                 guard !items.isEmpty else {
                     self.searchState = .empty(query: query)
+                    self.moveAccessibilityFocus(to: .empty)
                     return
                 }
 
@@ -293,7 +312,14 @@ struct LocationSelectionView: View {
                 let resultRegion = self.region(containing: items)
                 self.region = resultRegion
                 self.cameraPosition = .region(resultRegion)
+                self.moveAccessibilityFocus(to: .results)
             }
+        }
+    }
+
+    private func moveAccessibilityFocus(to outcome: SearchOutcomeFocus) {
+        DispatchQueue.main.async {
+            searchOutcomeFocus = outcome
         }
     }
 

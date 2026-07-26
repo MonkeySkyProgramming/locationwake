@@ -1,6 +1,7 @@
 import UIKit
 import GoogleMobileAds   // Google Mobile Ads SDK をインポート
 import UserNotifications
+import AppTrackingTransparency
 
 enum AppRuntime {
     static var isUITesting: Bool {
@@ -30,6 +31,10 @@ enum AppRuntime {
             || ProcessInfo.processInfo.environment["SIMULATE_ACTIVE_ALARM"] == "1"
     }
 
+    static var shouldSeedUITestAlarm: Bool {
+        ProcessInfo.processInfo.arguments.contains("--ui-test-seed-alarm")
+    }
+
     static var shouldSuppressExternalSideEffects: Bool {
         isUnitTesting || isUITesting || isScreenshotMode
     }
@@ -44,20 +49,48 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(startMobileAdsIfTrackingResolved),
+            name: .trackingAuthorizationDidResolve,
+            object: nil
+        )
 
         if AppRuntime.isUITesting && AppRuntime.shouldResetUITestData {
             UserDefaults.standard.removeObject(forKey: AlarmStore.savedAlarmsKey)
+            UserDefaults.standard.removeObject(forKey: AlarmStore.migrationBackupKey)
+            UserDefaults.standard.removeObject(forKey: AlarmStore.corruptPrimaryBackupKey)
+            UserDefaults.standard.removeObject(forKey: AlarmStore.recoveryInProgressKey)
             UserDefaults.standard.removeObject(
                 forKey: AppLifecycleDefaultsKey.onboardingCompleted
             )
-            UserDefaults.standard.removeObject(forKey: "ActiveAlarmID")
-            UserDefaults.standard.removeObject(forKey: "ActiveAlarmName")
+            AlarmActivityCenter.resetPersistedState()
+        }
+
+        if AppRuntime.isUITesting && AppRuntime.shouldSeedUITestAlarm {
+            let alarm = Alarm(
+                id: "ui-test-saved-alarm",
+                name: "テスト駅",
+                repeatWeekdays: [],
+                sound: "modan",
+                isAlarmEnabled: true,
+                isSoundEnabled: true,
+                isVibrationEnabled: true,
+                location: Location(
+                    latitude: 34.7025,
+                    longitude: 135.4959
+                ),
+                radius: 300
+            )
+            AlarmStore.save([alarm])
+            UserDefaults.standard.set(
+                true,
+                forKey: AppLifecycleDefaultsKey.onboardingCompleted
+            )
         }
 
         if !AppRuntime.shouldSuppressExternalSideEffects {
-            AppLaunchCounter.recordColdLaunch()
-            MobileAds.shared.start { _ in }
-
+            startMobileAdsIfTrackingResolved()
             LocationManager.shared.restoreSavedAlarms(reason: "launch")
         }
         
@@ -113,4 +146,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     func applicationWillTerminate(_ application: UIApplication) {}
+
+    @objc private func startMobileAdsIfTrackingResolved() {
+        guard ATTrackingManager.trackingAuthorizationStatus != .notDetermined else {
+            return
+        }
+        MobileAds.shared.start { _ in }
+    }
 }

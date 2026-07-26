@@ -22,6 +22,11 @@ enum AppSheetDestination: Identifiable {
     }
 }
 
+private enum AlarmListAccessibilityFocus: Hashable {
+    case listHeading
+    case retryButton
+}
+
 @MainActor
 final class NavigationModel: ObservableObject {
     @Published var path: [NavigationRoute] = []
@@ -44,21 +49,33 @@ struct AlarmListSwiftUIView: View {
     @State private var showsFirstRunOnboarding = false
     @State private var showsReliabilityAlert = false
     @State private var showsAlarmLimitAlert = false
+    @State private var pendingPostSaveReview = false
+    @State private var postSaveRefreshCompleted = false
+    @State private var pendingAuthorizationIssues: [PermissionReadinessIssue] = []
+    @State private var reliabilityAlertIssues: [PermissionReadinessIssue] = []
+    @AccessibilityFocusState private var accessibilityFocus: AlarmListAccessibilityFocus?
 
     var body: some View {
         ZStack {
-            BaseContainerView {
-                NavigationStack(path: $navigationModel.path) {
-                    alarmList
-                        .navigationDestination(for: NavigationRoute.self) { route in
-                            switch route {
-                            case .locationSelection:
-                                LocationSelectionView()
-                            case .settings:
-                                SettingView()
+            if !showsFirstRunOnboarding && activityCenter.activeAlarm == nil {
+                BaseContainerView {
+                    NavigationStack(path: $navigationModel.path) {
+                        alarmList
+                            .navigationDestination(for: NavigationRoute.self) { route in
+                                switch route {
+                                case .locationSelection:
+                                    LocationSelectionView()
+                                case .settings:
+                                    SettingView()
+                                }
                             }
-                        }
+                    }
                 }
+                .accessibilityHidden(navigationModel.presentedSheet != nil)
+            } else {
+                Color(uiColor: .systemBackground)
+                    .ignoresSafeArea()
+                    .accessibilityHidden(true)
             }
 
             if let activeAlarm = activityCenter.activeAlarm {
@@ -69,8 +86,11 @@ struct AlarmListSwiftUIView: View {
         }
         .environmentObject(viewModel)
         .environmentObject(navigationModel)
-        .sheet(item: $navigationModel.presentedSheet) { destination in
-            ZStack {
+        .sheet(
+            item: $navigationModel.presentedSheet,
+            onDismiss: handlePresentedSheetDismissed
+        ) { destination in
+            Group {
                 switch destination {
                 case .alarmEditor(let alarm, let isNew):
                     NavigationStack {
@@ -81,25 +101,13 @@ struct AlarmListSwiftUIView: View {
                 case .onboardingHelp:
                     OnboardingView(presentationMode: .help)
                 }
-
-                if let activeAlarm = activityCenter.activeAlarm {
-                    AlarmRingingView(activeAlarm: activeAlarm)
-                        .zIndex(10)
-                }
             }
         }
         .fullScreenCover(isPresented: $showsFirstRunOnboarding) {
-            ZStack {
-                OnboardingView(presentationMode: .firstRun) {
-                    hasSeenOnboarding = true
-                    permissionReadiness.refresh()
-                    ATTAuthorizationCoordinator.shared.requestIfEligible()
-                }
-
-                if let activeAlarm = activityCenter.activeAlarm {
-                    AlarmRingingView(activeAlarm: activeAlarm)
-                        .zIndex(10)
-                }
+            OnboardingView(presentationMode: .firstRun) {
+                hasSeenOnboarding = true
+                permissionReadiness.refresh()
+                ATTAuthorizationCoordinator.shared.requestIfEligible()
             }
         }
         .alert(
@@ -108,10 +116,13 @@ struct AlarmListSwiftUIView: View {
         ) {
             Button("設定を確認") {
                 navigationModel.path = [.settings]
+                scheduleATTRequest()
             }
-            Button("あとで", role: .cancel) {}
+            Button("あとで", role: .cancel) {
+                scheduleATTRequest()
+            }
         } message: {
-            Text("到着アラームを確実に動作させるには、位置情報を「常に許可」にし、通知を許可してください。設定にかかわらず監視は開始しますが、正しく動作しないことがあります。")
+            Text(reliabilityAlertMessage)
         }
         .alert("アラームを追加できません", isPresented: $showsAlarmLimitAlert) {
             Button("OK", role: .cancel) {}
@@ -133,11 +144,28 @@ struct AlarmListSwiftUIView: View {
             AlarmActivityCenter.shared.presentCurrentAlarmIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: .showOnboardingHelp)) { _ in
+            guard activityCenter.activeAlarm == nil else { return }
             navigationModel.presentedSheet = .onboardingHelp
         }
         .onChange(of: navigationModel.path) { _, newPath in
             guard newPath.isEmpty else { return }
             viewModel.loadAlarms()
+        }
+        .onChange(of: activityCenter.activeAlarm) { previousAlarm, activeAlarm in
+            if activeAlarm != nil {
+                prepareForRingingAlarmPresentation()
+            } else if previousAlarm != nil {
+                restoreFocusAfterStoppingAlarm()
+            }
+        }
+        .onChange(of: viewModel.loadState) { _, loadState in
+            guard case .failed = loadState,
+                  activityCenter.activeAlarm == nil else {
+                return
+            }
+            DispatchQueue.main.async {
+                accessibilityFocus = .retryButton
+            }
         }
     }
 
@@ -148,6 +176,13 @@ struct AlarmListSwiftUIView: View {
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .listRowBackground(Color.clear)
+            } header: {
+                Text("アラーム一覧")
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityFocused(
+                        $accessibilityFocus,
+                        equals: .listHeading
+                    )
             }
 
             if hasAuthorizationIssue {
@@ -159,7 +194,7 @@ struct AlarmListSwiftUIView: View {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("到着通知に必要な設定があります")
                                     .foregroundStyle(.primary)
-                                Text("位置情報と通知の設定を確認してください")
+                                Text(authorizationIssueSummary)
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                             }
@@ -241,7 +276,11 @@ struct AlarmListSwiftUIView: View {
                 } actions: {
                     Button("もう一度試す", action: viewModel.loadAlarms)
                         .buttonStyle(.borderedProminent)
-                        .tint(AppDesign.tint)
+                        .tint(AppDesign.prominentButtonTint)
+                        .accessibilityFocused(
+                            $accessibilityFocus,
+                            equals: .retryButton
+                        )
                 }
                 .frame(maxWidth: .infinity, minHeight: 260)
                 .listRowBackground(Color.clear)
@@ -266,7 +305,7 @@ struct AlarmListSwiftUIView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
-                        .tint(AppDesign.tint)
+                        .tint(AppDesign.prominentButtonTint)
                         .accessibilityIdentifier("home.addDestination")
                     }
                     .padding(.vertical, 32)
@@ -333,7 +372,11 @@ struct AlarmListSwiftUIView: View {
         viewModel.loadAlarms()
         permissionReadiness.refresh()
 
-        if !AppRuntime.shouldSuppressExternalSideEffects {
+        // 読み込みに失敗した時に空配列を正しい状態として監視へ渡すと、
+        // 公開版から引き継いだ既存regionまで停止してしまう。保存データを
+        // 正常に確認できた場合だけ、画面側のスナップショットを同期する。
+        if !AppRuntime.shouldSuppressExternalSideEffects,
+           viewModel.loadState == .loaded {
             LocationManager.shared.startMonitoring(alarms: viewModel.alarms)
         }
 
@@ -357,19 +400,113 @@ struct AlarmListSwiftUIView: View {
             _ = activityCenter.registerArrival(for: simulatedAlarm)
         }
         AlarmActivityCenter.shared.presentCurrentAlarmIfNeeded()
+        if activityCenter.activeAlarm != nil {
+            prepareForRingingAlarmPresentation()
+        }
+    }
+
+    private func prepareForRingingAlarmPresentation() {
+        // 鳴動画面を唯一のモーダル相当画面にする。既存のsheet・cover・alertを
+        // 先に閉じ、背後の画面からアクセシビリティフォーカスを奪わない。
+        accessibilityFocus = nil
+        showsReliabilityAlert = false
+        showsAlarmLimitAlert = false
+        pendingPostSaveReview = false
+        postSaveRefreshCompleted = false
+        pendingAuthorizationIssues = []
+        reliabilityAlertIssues = []
+        navigationModel.presentedSheet = nil
+        showsFirstRunOnboarding = false
+        navigationModel.path = []
+    }
+
+    private func restoreFocusAfterStoppingAlarm() {
+        // 停止アナウンスを読み終え、リストが再構築された後に移動する。
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            guard activityCenter.activeAlarm == nil else { return }
+            accessibilityFocus = .listHeading
+        }
     }
 
     private func handleAlarmSaved() {
+        guard activityCenter.activeAlarm == nil else { return }
         viewModel.loadAlarms()
-        ATTAuthorizationCoordinator.shared.requestIfEligible()
+        pendingPostSaveReview = true
+        postSaveRefreshCompleted = false
         permissionReadiness.refresh {
-            guard !permissionReadiness.snapshot.authorizationIssues.isEmpty else {
+            guard activityCenter.activeAlarm == nil else {
+                pendingAuthorizationIssues = []
+                postSaveRefreshCompleted = false
                 return
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            pendingAuthorizationIssues = permissionReadiness.snapshot.authorizationIssues
+            postSaveRefreshCompleted = true
+            handlePresentedSheetDismissed()
+        }
+    }
+
+    private func handlePresentedSheetDismissed() {
+        guard activityCenter.activeAlarm == nil,
+              pendingPostSaveReview,
+              postSaveRefreshCompleted,
+              navigationModel.presentedSheet == nil else {
+            return
+        }
+        pendingPostSaveReview = false
+        postSaveRefreshCompleted = false
+        reliabilityAlertIssues = pendingAuthorizationIssues
+        pendingAuthorizationIssues = []
+
+        if reliabilityAlertIssues.isEmpty {
+            scheduleATTRequest()
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                guard activityCenter.activeAlarm == nil else { return }
                 showsReliabilityAlert = true
             }
         }
+    }
+
+    private func scheduleATTRequest() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            guard activityCenter.activeAlarm == nil else { return }
+            ATTAuthorizationCoordinator.shared.requestIfEligible()
+        }
+    }
+
+    private var authorizationIssueSummary: String {
+        let issues = permissionReadiness.snapshot.authorizationIssues
+        switch (
+            issues.contains(.locationAlways),
+            issues.contains(.notificationAuthorization)
+        ) {
+        case (true, true):
+            return "位置情報を「常に許可」にし、通知を許可してください"
+        case (true, false):
+            return "位置情報を「常に許可」にしてください"
+        case (false, true):
+            return "通知を許可してください"
+        case (false, false):
+            return "設定を確認してください"
+        }
+    }
+
+    private var reliabilityAlertMessage: String {
+        let issueText: String
+        switch (
+            reliabilityAlertIssues.contains(.locationAlways),
+            reliabilityAlertIssues.contains(.notificationAuthorization)
+        ) {
+        case (true, true):
+            issueText = "位置情報を「常に許可」にし、通知を許可してください。"
+        case (true, false):
+            issueText = "位置情報を「常に許可」にしてください。"
+        case (false, true):
+            issueText = "通知を許可してください。"
+        case (false, false):
+            issueText = "位置情報と通知の設定を確認してください。"
+        }
+        return "アラームが作動しないことがあります。\(issueText)設定にかかわらず監視は開始します。"
     }
 }
 
@@ -405,45 +542,71 @@ final class AlarmListViewModel: ObservableObject {
     }
 
     func setAlarmEnabled(id: String, enabled: Bool) {
-        guard let index = alarms.firstIndex(where: { $0.id == id }) else {
+        guard case .success(var latestAlarms) = AlarmStore.loadResult() else {
+            loadAlarms()
             return
         }
-        guard alarms[index].isAlarmEnabled != enabled else { return }
+        guard let index = latestAlarms.firstIndex(where: { $0.id == id }) else {
+            loadAlarms()
+            return
+        }
+        guard latestAlarms[index].isAlarmEnabled != enabled else {
+            alarms = latestAlarms
+            return
+        }
 
         if enabled {
-            var alarm = alarms[index]
+            var alarm = latestAlarms[index]
             alarm.isAlarmEnabled = true
-            alarms[index] = LocationManager.preparedForInitialStateCheck(
+            latestAlarms[index] = LocationManager.preparedForInitialStateCheck(
                 alarm,
                 currentLocation: LocationManager.shared.locationManager.location
             )
         } else {
-            alarms[index].isAlarmEnabled = false
+            latestAlarms[index].isAlarmEnabled = false
         }
-        saveAlarms()
+        guard persist(latestAlarms) else { return }
         UIAccessibility.post(
             notification: .announcement,
             argument: enabled ? "アラームをオンにしました" : "アラームをオフにしました"
         )
     }
 
-    func saveAlarms() {
-        alarms = Alarm.normalizedForPersistence(alarms)
-        AlarmStore.save(alarms)
+    @discardableResult
+    private func persist(_ updatedAlarms: [Alarm]) -> Bool {
+        let normalized = Alarm.normalizedForPersistence(updatedAlarms)
+        switch AlarmStore.save(normalized) {
+        case .success:
+            alarms = normalized
+            loadState = .loaded
+        case .failure(let error):
+            loadState = .failed(error.localizedDescription)
+            UIAccessibility.post(
+                notification: .announcement,
+                argument: error.localizedDescription
+            )
+            return false
+        }
         if !AppRuntime.shouldSuppressExternalSideEffects {
             LocationManager.shared.startMonitoring(alarms: alarms)
         }
+        return true
     }
 
     func deleteAlarm(id: String) {
-        guard let index = alarms.firstIndex(where: { $0.id == id }) else {
+        guard case .success(var latestAlarms) = AlarmStore.loadResult() else {
+            loadAlarms()
             return
         }
-        let alarm = alarms.remove(at: index)
+        guard let index = latestAlarms.firstIndex(where: { $0.id == id }) else {
+            loadAlarms()
+            return
+        }
+        let alarm = latestAlarms.remove(at: index)
+        guard persist(latestAlarms) else { return }
         if !AppRuntime.shouldSuppressExternalSideEffects {
             LocationManager.shared.stopMonitoringForAlarm(alarm: alarm)
         }
-        saveAlarms()
         UIAccessibility.post(
             notification: .announcement,
             argument: "\(alarm.name)を削除しました"
@@ -466,7 +629,7 @@ private struct AlarmListRow: View {
                 VStack(alignment: .leading, spacing: 12) {
                     rowButton
                     HStack {
-                        Toggle("アラームを有効にする", isOn: $isEnabled)
+                        Toggle("\(alarm.name)を有効にする", isOn: $isEnabled)
                         Spacer(minLength: 8)
                         actionMenu
                     }
@@ -523,10 +686,10 @@ private struct AlarmListRow: View {
         }
         .buttonStyle(.plain)
         .layoutPriority(1)
-        .accessibilityElement(children: .ignore)
         .accessibilityLabel(alarm.name)
         .accessibilityValue(isEnabled ? detail : "オフ")
         .accessibilityHint("ダブルタップして設定を編集")
+        .accessibilityIdentifier("home.alarm.\(alarm.id)")
     }
 
     private var actionMenu: some View {
@@ -590,6 +753,10 @@ private struct AlarmMapPreview: View {
 private struct AlarmRingingView: View {
     let activeAlarm: ActiveAlarmPresentation
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AccessibilityFocusState private var isStopButtonFocused: Bool
+
+    // 白文字とのWCAGコントラスト比は約7.5:1。
+    private let stopButtonTint = Color(red: 0.66, green: 0.08, blue: 0.08)
 
     var body: some View {
         ScrollView {
@@ -605,6 +772,7 @@ private struct AlarmRingingView: View {
                 Text("\(activeAlarm.name)に到着しました")
                     .font(.largeTitle.bold())
                     .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
 
                 Text("停止ボタンを押すまで、アラームの再生状態は終了しません。")
                     .font(.body)
@@ -626,8 +794,10 @@ private struct AlarmRingingView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .tint(.red)
+                .tint(stopButtonTint)
+                .foregroundStyle(.white)
                 .accessibilityIdentifier("alarm.stop")
+                .accessibilityFocused($isStopButtonFocused)
 
                 Spacer(minLength: 40)
             }
@@ -636,6 +806,11 @@ private struct AlarmRingingView: View {
         }
         .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .accessibilityAddTraits(.isModal)
+        .onAppear {
+            DispatchQueue.main.async {
+                isStopButtonFocused = true
+            }
+        }
     }
 }
 

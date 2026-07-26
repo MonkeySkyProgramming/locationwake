@@ -3,9 +3,17 @@ import CoreLocation
 import UserNotifications
 
 struct SettingView: View {
+    private enum AccessibilityFocusTarget: Hashable {
+        case readinessStatus
+        case issue(String)
+    }
+
     @AppStorage("defaultRadius") private var defaultRadius: Double = Alarm.defaultGeofenceRadius
     @AppStorage("isSoundEnabled") private var isSoundEnabled: Bool = true
     @ObservedObject private var permissionReadiness: PermissionReadiness
+    @AccessibilityFocusState private var accessibilityFocus: AccessibilityFocusTarget?
+    @State private var showsLocationRestrictionExplanation = false
+    @State private var pendingPermissionIssueID: String?
 
     init(permissionReadiness: PermissionReadiness = .shared) {
         _permissionReadiness = ObservedObject(wrappedValue: permissionReadiness)
@@ -31,6 +39,7 @@ struct SettingView: View {
                         Text("設定を確認しています")
                             .foregroundStyle(.secondary)
                     }
+                    .accessibilityFocused($accessibilityFocus, equals: .readinessStatus)
                 } else if permissionReadiness.snapshot.isReadyForReliableArrival {
                     Label {
                         Text("到着通知の設定は完了しています")
@@ -39,6 +48,7 @@ struct SettingView: View {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(AppDesign.tint)
                     }
+                    .accessibilityFocused($accessibilityFocus, equals: .readinessStatus)
                 } else {
                     ForEach(permissionReadiness.snapshot.issues) { issue in
                         Button {
@@ -50,6 +60,7 @@ struct SettingView: View {
                                 iconColor: .orange
                             )
                         }
+                        .accessibilityFocused($accessibilityFocus, equals: .issue(issue.id))
                     }
                 }
             }
@@ -96,10 +107,31 @@ struct SettingView: View {
             permissionReadiness.refresh()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            permissionReadiness.refresh()
+            permissionReadiness.refresh {
+                focusAfterPendingPermissionResult()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .locationAuthorizationDidChange)) { _ in
-            permissionReadiness.refresh()
+            permissionReadiness.refresh {
+                focusAfterPendingPermissionResult()
+            }
+        }
+        .onChange(of: permissionReadiness.snapshot) { oldValue, newValue in
+            guard oldValue != newValue else { return }
+            if !focusAfterPendingPermissionResult() {
+                UIAccessibility.post(
+                    notification: .announcement,
+                    argument: readinessAnnouncement(for: newValue)
+                )
+            }
+        }
+        .alert(
+            "位置情報が制限されています",
+            isPresented: $showsLocationRestrictionExplanation
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("スクリーンタイムまたは端末管理の制限により、このアプリから変更できません。端末の管理者またはスクリーンタイム設定を確認してください。")
         }
     }
 
@@ -107,22 +139,95 @@ struct SettingView: View {
         switch issue {
         case .locationAlways:
             switch permissionReadiness.snapshot.locationAuthorization {
-            case .notDetermined, .authorizedWhenInUse:
+            case .notDetermined:
+                prepareForPermissionResult(from: issue)
                 permissionReadiness.requestAlwaysLocationAuthorization()
-            case .authorizedAlways, .denied, .restricted:
+            case .authorizedWhenInUse:
+                prepareForPermissionResult(from: issue)
+                if permissionReadiness.canRequestAlwaysUpgradeInApp {
+                    permissionReadiness.requestAlwaysLocationAuthorization()
+                } else {
+                    permissionReadiness.openAppSettings()
+                }
+            case .restricted:
+                showsLocationRestrictionExplanation = true
+            case .authorizedAlways, .denied:
+                prepareForPermissionResult(from: issue)
                 permissionReadiness.openAppSettings()
             @unknown default:
+                prepareForPermissionResult(from: issue)
                 permissionReadiness.openAppSettings()
             }
         case .notificationAuthorization:
+            prepareForPermissionResult(from: issue)
             if permissionReadiness.snapshot.notificationAuthorization == .notDetermined {
-                permissionReadiness.requestNotificationAuthorization()
+                permissionReadiness.requestNotificationAuthorization {
+                    focusAfterPendingPermissionResult()
+                }
             } else {
                 permissionReadiness.openAppSettings()
             }
-        case .preciseLocation, .notificationSound, .backgroundRefresh:
+        case .preciseLocation, .notificationSound:
+            prepareForPermissionResult(from: issue)
             permissionReadiness.openAppSettings()
         }
+    }
+
+    private func prepareForPermissionResult(from issue: PermissionReadinessIssue) {
+        pendingPermissionIssueID = issue.id
+        accessibilityFocus = nil
+    }
+
+    @discardableResult
+    private func focusAfterPendingPermissionResult() -> Bool {
+        guard let pendingPermissionIssueID else { return false }
+        self.pendingPermissionIssueID = nil
+
+        let target = accessibilityTarget(
+            afterResolving: pendingPermissionIssueID,
+            in: permissionReadiness.snapshot
+        )
+        accessibilityFocus = nil
+        DispatchQueue.main.async {
+            accessibilityFocus = target
+        }
+        return true
+    }
+
+    private func accessibilityTarget(
+        afterResolving issueID: String,
+        in snapshot: PermissionReadinessSnapshot
+    ) -> AccessibilityFocusTarget {
+        guard snapshot.hasLoadedNotificationSettings,
+              !snapshot.isReadyForReliableArrival,
+              !snapshot.issues.isEmpty else {
+            return .readinessStatus
+        }
+
+        if snapshot.issues.contains(where: { $0.id == issueID }) {
+            return .issue(issueID)
+        }
+
+        if let previousIndex = PermissionReadinessIssue.allCases.firstIndex(where: { $0.id == issueID }),
+           let successor = snapshot.issues.first(where: { issue in
+               guard let index = PermissionReadinessIssue.allCases.firstIndex(where: { $0.id == issue.id }) else {
+                   return false
+               }
+               return index > previousIndex
+           }) {
+            return .issue(successor.id)
+        }
+
+        return .issue(snapshot.issues[0].id)
+    }
+
+    private func readinessAnnouncement(
+        for snapshot: PermissionReadinessSnapshot
+    ) -> String {
+        if snapshot.isReadyForReliableArrival {
+            return "到着通知の設定は完了しています"
+        }
+        return snapshot.issues.map(\.title).joined(separator: "。")
     }
 
     private func settingsLabel(
