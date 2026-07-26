@@ -326,7 +326,7 @@ struct OnboardingView: View {
     private var controls: some View {
         switch step {
         case .intro:
-            primaryButton("準備を始める", identifier: "onboarding.prepare") {
+            primaryButton("設定を始める", identifier: "onboarding.prepare") {
                 move(to: .location)
             }
         case .location:

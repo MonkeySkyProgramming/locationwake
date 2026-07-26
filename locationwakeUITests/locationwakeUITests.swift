@@ -49,6 +49,7 @@ final class locationwakeUITests: XCTestCase {
             identifier: "onboarding.prepare"
         ).firstMatch
         XCTAssertTrue(prepareButton.waitForExistence(timeout: 10))
+        XCTAssertEqual(prepareButton.label, "設定を始める")
         XCTAssertFalse(app.buttons["あとで"].exists)
         XCTAssertFalse(app.buttons["まず使ってみる"].exists)
         XCTAssertFalse(app.alerts.firstMatch.exists)
