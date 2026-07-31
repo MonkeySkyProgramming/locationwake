@@ -1,0 +1,29 @@
+{
+  "sourceLanguage" : "ja",
+  "strings" : {
+    "設定" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Einstellungen" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settings" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ajustes" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Réglages" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "सेटिंग्स" } },
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Pengaturan" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Impostazioni" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "설정" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Instellingen" } },
+        "pl" : { "stringUnit" : { "state" : "translated", "value" : "Ustawienia" } },
+        "pt-BR" : { "stringUnit" : { "state" : "translated", "value" : "Ajustes" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Настройки" } },
+        "sv" : { "stringUnit" : { "state" : "translated", "value" : "Inställningar" } },
+        "th" : { "stringUnit" : { "state" : "translated", "value" : "การตั้งค่า" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Ayarlar" } },
+        "uk" : { "stringUnit" : { "state" : "translated", "value" : "Параметри" } },
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Cài đặt" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "设置" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "設定" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

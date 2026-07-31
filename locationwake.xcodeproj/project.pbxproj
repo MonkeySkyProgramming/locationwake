@@ -14,6 +14,7 @@
 		13E84A192C86B4F500C933F6 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A182C86B4F500C933F6 /* AppDelegate.swift */; };
 		13E84A1B2C86B4F500C933F6 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A1A2C86B4F500C933F6 /* SceneDelegate.swift */; };
 		13E84A222C86B4F700C933F6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A212C86B4F700C933F6 /* Assets.xcassets */; };
+		A11CE0012F0A000100000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A11CE0022F0A000100000001 /* Localizable.xcstrings */; };
 		13E84A302C86B4F700C933F6 /* locationwakeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A2F2C86B4F700C933F6 /* locationwakeTests.swift */; };
 		13E84A3A2C86B4F700C933F6 /* locationwakeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A392C86B4F700C933F6 /* locationwakeUITests.swift */; };
 		13E84A3C2C86B4F700C933F6 /* locationwakeUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E84A3B2C86B4F700C933F6 /* locationwakeUITestsLaunchTests.swift */; };
@@ -56,6 +57,7 @@
 		13E84A182C86B4F500C933F6 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		13E84A1A2C86B4F500C933F6 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		13E84A212C86B4F700C933F6 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A11CE0022F0A000100000001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		13E84A262C86B4F700C933F6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		13E84A2B2C86B4F700C933F6 /* locationwakeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = locationwakeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		13E84A2F2C86B4F700C933F6 /* locationwakeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = locationwakeTests.swift; sourceTree = "<group>"; };
@@ -204,6 +206,7 @@
 					13E84A742C8951F700C933F6 /* siren.mp3 */,
 					13E84A262C86B4F700C933F6 /* Info.plist */,
 					13E84A212C86B4F700C933F6 /* Assets.xcassets */,
+					A11CE0022F0A000100000001 /* Localizable.xcstrings */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -305,6 +308,24 @@
 			knownRegions = (
 				ja,
 				en,
+				"zh-Hans",
+				"zh-Hant",
+				ko,
+				es,
+				"pt-BR",
+				fr,
+				de,
+				it,
+				nl,
+				pl,
+				ru,
+				uk,
+				tr,
+				hi,
+				id,
+				vi,
+				th,
+				sv,
 				Base,
 			);
 			mainGroup = 13E84A0C2C86B4F500C933F6;
@@ -329,6 +350,7 @@
 			files = (
 				130C18062DFAA17500A9F556 /* .gitignore in Resources */,
 				13E84A222C86B4F700C933F6 /* Assets.xcassets in Resources */,
+				A11CE0012F0A000100000001 /* Localizable.xcstrings in Resources */,
 				13E84A782C8951F700C933F6 /* kind.mp3 in Resources */,
 				13E84A762C8951F700C933F6 /* modan.mp3 in Resources */,
 				13B7D32D2CB3D40600BDAD6C /* LaunchScreen.storyboard in Resources */,
