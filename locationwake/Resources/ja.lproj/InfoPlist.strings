@@ -1,0 +1,4 @@
+"CFBundleDisplayName" = "起きなはれ";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "アプリを閉じている間も設定した目的地への到着を検知し、アラームでお知らせするために位置情報を使用します。";
+"NSLocationWhenInUseUsageDescription" = "目的地の検索と、設定した場所への到着を確認するために位置情報を使用します。";
+"NSUserTrackingUsageDescription" = "より適切な広告の表示と広告効果の測定のために、他社のアプリやWebサイトを横断したアクティビティの追跡許可を使用します。";

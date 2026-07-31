@@ -266,7 +266,7 @@ final class SoundPlayer: NSObject, AVAudioPlayerDelegate {
         case playbackDidNotStart
 
         var errorDescription: String? {
-            "音声再生を開始できませんでした"
+            AppStrings.text("音声再生を開始できませんでした")
         }
     }
 }

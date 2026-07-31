@@ -56,15 +56,15 @@ struct LocationSelectionView: View {
     private var mapAccessibilityValue: String {
         switch searchState {
         case .idle:
-            return "検索結果はありません"
+            return AppStrings.text("検索結果はありません")
         case .loading:
-            return "検索中です"
+            return AppStrings.text("検索中です")
         case .results(let items):
-            return "検索結果を\(items.count)件表示しています"
+            return AppStrings.format("検索結果を%lld件表示しています", items.count)
         case .empty:
-            return "検索結果は0件です"
+            return AppStrings.text("検索結果は0件です")
         case .failure:
-            return "検索に失敗しました"
+            return AppStrings.text("検索に失敗しました")
         }
     }
 
@@ -73,7 +73,7 @@ struct LocationSelectionView: View {
             Map(position: $cameraPosition) {
                 ForEach(resultItems) { item in
                     Marker(
-                        item.mapItem.name ?? "名称不明",
+                        item.mapItem.name ?? AppStrings.text("名称不明"),
                         coordinate: item.mapItem.placemark.coordinate
                     )
                     .tint(AppDesign.tint)
@@ -84,9 +84,9 @@ struct LocationSelectionView: View {
             }
             .frame(height: mapHeight)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("検索範囲の地図")
+            .accessibilityLabel(AppStrings.text("検索範囲の地図"))
             .accessibilityValue(mapAccessibilityValue)
-            .accessibilityHint("目的地は検索結果の一覧から選べます")
+            .accessibilityHint(AppStrings.text("目的地は検索結果の一覧から選べます"))
             .accessibilityIdentifier("locationSelection.map")
 
             searchContent
@@ -128,7 +128,7 @@ struct LocationSelectionView: View {
             VStack(spacing: 16) {
                 ProgressView()
                     .controlSize(.large)
-                Text("「\(query)」を検索中")
+                Text(AppStrings.format("「%@」を検索中", query))
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -146,7 +146,7 @@ struct LocationSelectionView: View {
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityFocused($searchOutcomeFocus, equals: .empty)
             } description: {
-                Text("「\(query)」に一致する場所はありません。検索語や地図の範囲を変えてください。")
+                Text(AppStrings.format("「%@」に一致する場所はありません。検索語や地図の範囲を変えてください。", query))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityIdentifier("locationSelection.empty")
@@ -165,7 +165,7 @@ struct LocationSelectionView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(AppDesign.prominentButtonTint)
                 .controlSize(.large)
-                .accessibilityHint("同じ検索語でもう一度検索します")
+                .accessibilityHint(AppStrings.text("同じ検索語でもう一度検索します"))
                 .accessibilityIdentifier("locationSelection.retry")
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -185,13 +185,13 @@ struct LocationSelectionView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(item.mapItem.name ?? "名称不明")
-                    .accessibilityValue(item.mapItem.placemark.title ?? "住所情報なし")
-                    .accessibilityHint("新しいアラームの編集画面を開きます")
+                    .accessibilityLabel(item.mapItem.name ?? AppStrings.text("名称不明"))
+                    .accessibilityValue(item.mapItem.placemark.title ?? AppStrings.text("住所情報なし"))
+                    .accessibilityHint(AppStrings.text("新しいアラームの編集画面を開きます"))
                     .accessibilityIdentifier("locationSelection.result.\(index)")
                 }
             } header: {
-                Text("検索結果（\(resultItems.count)件）")
+                Text(AppStrings.format("検索結果（%lld件）", resultItems.count))
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityFocused($searchOutcomeFocus, equals: .results)
             }
@@ -213,12 +213,12 @@ struct LocationSelectionView: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(item.mapItem.name ?? "名称不明")
+                Text(item.mapItem.name ?? AppStrings.text("名称不明"))
                     .font(.headline)
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text(item.mapItem.placemark.title ?? "住所情報なし")
+                Text(item.mapItem.placemark.title ?? AppStrings.text("住所情報なし"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -295,7 +295,7 @@ struct LocationSelectionView: View {
                 guard let response else {
                     self.searchState = .failure(
                         query: query,
-                        message: error?.localizedDescription ?? "通信環境を確認して、もう一度お試しください。"
+                        message: error?.localizedDescription ?? AppStrings.text("通信環境を確認して、もう一度お試しください。")
                     )
                     self.moveAccessibilityFocus(to: .failure)
                     return

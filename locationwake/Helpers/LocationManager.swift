@@ -421,7 +421,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
     private func synchronizeGeofences() {
         guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
             for alarm in Self.geofenceEligibleAlarms(from: alarms) {
-                setMonitoringState(.failed, alarmID: alarm.id, failure: "この端末では到着範囲の監視を利用できません。")
+                setMonitoringState(.failed, alarmID: alarm.id, failure: AppStrings.text("この端末では到着範囲の監視を利用できません。"))
             }
             return
         }
@@ -548,7 +548,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
             setMonitoringState(
                 .capacityExceeded,
                 alarmID: alarm.id,
-                failure: "同時に監視できる到着範囲の上限に達しています。"
+                failure: AppStrings.text("同時に監視できる到着範囲の上限に達しています。")
             )
         }
 
@@ -719,7 +719,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
             setMonitoringState(
                 .permissionRequired,
                 alarmID: alarm.id,
-                failure: "到着範囲を監視するには位置情報の許可が必要です。"
+                failure: AppStrings.text("到着範囲を監視するには位置情報の許可が必要です。")
             )
         }
     }
@@ -735,7 +735,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
             setMonitoringState(
                 .permissionRequired,
                 alarmID: alarmID,
-                failure: "到着範囲を監視するには位置情報の許可が必要です。"
+                failure: AppStrings.text("到着範囲を監視するには位置情報の許可が必要です。")
             )
             return
         }
@@ -753,7 +753,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
             setMonitoringState(
                 .failed,
                 alarmID: alarmID,
-                failure: "到着範囲の監視を開始できませんでした。設定を確認して再度お試しください。"
+                failure: AppStrings.text("到着範囲の監視を開始できませんでした。設定を確認して再度お試しください。")
             )
             return
         }

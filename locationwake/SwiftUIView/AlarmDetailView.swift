@@ -83,8 +83,8 @@ struct AlarmDetailView: View {
                     .disabled(trimmedName.isEmpty)
                     .accessibilityHint(
                         trimmedName.isEmpty
-                            ? "保存するにはアラーム名を入力してください"
-                            : "アラームの設定を保存します"
+                            ? AppStrings.text("保存するにはアラーム名を入力してください")
+                            : AppStrings.text("アラームの設定を保存します")
                     )
             }
         }
@@ -107,7 +107,10 @@ struct AlarmDetailView: View {
         .alert("アラームを追加できません", isPresented: $showsLimitAlert) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("アラームは最大\(Alarm.maximumSavedAlarms)件です。不要なアラームを削除してから、もう一度お試しください。")
+            Text(AppStrings.format(
+                "アラームは最大%lld件です。不要なアラームを削除してから、もう一度お試しください。",
+                Alarm.maximumSavedAlarms
+            ))
         }
         .alert(
             "保存できませんでした",
@@ -181,7 +184,7 @@ struct AlarmDetailView: View {
                 cameraPosition: $cameraPosition,
                 location: draft.location,
                 radius: draft.radius,
-                title: trimmedName.isEmpty ? "目的地" : trimmedName
+                title: trimmedName.isEmpty ? AppStrings.text("目的地") : trimmedName
             )
 
             Label {
@@ -242,7 +245,7 @@ struct AlarmDetailView: View {
                 SoundSelectionView(selectedSound: $draft.sound)
             } label: {
                 LabeledContent {
-                    Text(draft.sound)
+                    Text(localizedSoundDisplayName(draft.sound))
                         .foregroundStyle(.secondary)
                 } label: {
                     Label("サウンド", systemImage: "music.note")
@@ -296,18 +299,21 @@ struct AlarmDetailView: View {
     }
 
     private var weekdaySummary: String {
-        let names = ["日", "月", "火", "水", "木", "金", "土"]
+        let names = ["日", "月", "火", "水", "木", "金", "土"].map(AppStrings.text)
         let validDays = draft.repeatWeekdays.filter { names.indices.contains($0) }
-        guard !validDays.isEmpty else { return "繰り返さない" }
+        guard !validDays.isEmpty else { return AppStrings.text("繰り返さない") }
         return validDays.sorted().map { names[$0] }.joined(separator: "・")
     }
 
     private var monitoringMethodDescription: String? {
         guard let geofenceMaximum = LocationManager.shared.maximumGeofenceRadius else {
-            return "この到着範囲は現在地の継続確認を使うため、電池消費が増えることがあります。"
+            return AppStrings.text("この到着範囲は現在地の継続確認を使うため、電池消費が増えることがあります。")
         }
         guard draft.radius > geofenceMaximum else { return nil }
-        return "\(Int(geofenceMaximum)) mを超えるため、現在地の継続確認を使います。"
+        return AppStrings.format(
+            "%lld mを超えるため、現在地の継続確認を使います。",
+            Int(geofenceMaximum)
+        )
     }
 
     private func cancel() {
@@ -322,7 +328,7 @@ struct AlarmDetailView: View {
         guard !trimmedName.isEmpty else {
             UIAccessibility.post(
                 notification: .announcement,
-                argument: "アラーム名を入力してください"
+                argument: AppStrings.text("アラーム名を入力してください")
             )
             return
         }
@@ -332,7 +338,7 @@ struct AlarmDetailView: View {
             if case .failure(let error) = loadResult {
                 saveErrorMessage = error.localizedDescription
             } else {
-                saveErrorMessage = "保存したアラームを読み込めませんでした。"
+                saveErrorMessage = AppStrings.text("保存したアラームを読み込めませんでした。")
             }
             return
         }
@@ -344,7 +350,7 @@ struct AlarmDetailView: View {
                 return
             }
         } else if existingIndex == nil {
-            saveErrorMessage = "編集中のアラームが見つかりません。削除された可能性があります。"
+            saveErrorMessage = AppStrings.text("編集中のアラームが見つかりません。削除された可能性があります。")
             return
         }
 
@@ -409,7 +415,7 @@ struct AlarmDetailView: View {
         NotificationCenter.default.post(name: .alarmSaved, object: savedAlarm)
         UIAccessibility.post(
             notification: .announcement,
-            argument: "アラームを保存しました"
+            argument: AppStrings.text("アラームを保存しました")
         )
         navigationModel.path = []
         dismiss()
@@ -446,8 +452,10 @@ private struct AlarmDetailMapPreview: View {
         .frame(height: 214)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("目的地の地図")
-        .accessibilityValue("\(title)、到着範囲 \(Int(radius)) m")
+        .accessibilityLabel(AppStrings.text("目的地の地図"))
+        .accessibilityValue(
+            AppStrings.format("%@、到着範囲 %lld m", title, Int(radius))
+        )
     }
 }
 
@@ -465,7 +473,7 @@ struct SoundSelectionView: View {
                             selectedSound = sound
                         } label: {
                             HStack {
-                                Label(sound, systemImage: "speaker.wave.2")
+                                Label(localizedSoundDisplayName(sound), systemImage: "speaker.wave.2")
                                 Spacer()
                                 if sound == selectedSound {
                                     Image(systemName: "checkmark")
@@ -477,7 +485,7 @@ struct SoundSelectionView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityValue(
-                            sound == selectedSound ? "選択済み" : "未選択"
+                            AppStrings.text(sound == selectedSound ? "選択済み" : "未選択")
                         )
                         .accessibilityAddTraits(
                             sound == selectedSound
@@ -492,7 +500,9 @@ struct SoundSelectionView: View {
                                 .frame(width: 44, height: 44)
                         }
                         .buttonStyle(.borderless)
-                        .accessibilityLabel("\(sound)を試聴")
+                        .accessibilityLabel(
+                            AppStrings.format("%@を試聴", localizedSoundDisplayName(sound))
+                        )
                     }
                 }
             }
@@ -527,18 +537,27 @@ struct SoundSelectionView: View {
     }
 }
 
+private func localizedSoundDisplayName(_ sound: String) -> String {
+    switch sound {
+    case "kind": AppStrings.text("やさしい")
+    case "modan": AppStrings.text("モダン")
+    case "siren": AppStrings.text("サイレン")
+    default: sound
+    }
+}
+
 struct RepeatWeekdaySelectionView: View {
     @Binding var selectedWeekdays: Set<Int>
     private let days = [
         "日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"
-    ]
-    private let shortDays = ["日", "月", "火", "水", "木", "金", "土"]
+    ].map(AppStrings.text)
+    private let shortDays = ["日", "月", "火", "水", "木", "金", "土"].map(AppStrings.text)
 
     var body: some View {
         Form {
             Section {
                 selectionButton(
-                    title: "繰り返さない",
+                    title: AppStrings.text("繰り返さない"),
                     isSelected: selectedWeekdays.isEmpty
                 ) {
                     selectedWeekdays.removeAll()
@@ -587,7 +606,7 @@ struct RepeatWeekdaySelectionView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityValue(isSelected ? "選択済み" : "未選択")
+        .accessibilityValue(AppStrings.text(isSelected ? "選択済み" : "未選択"))
         .accessibilityAddTraits(
             isSelected ? .isSelected : AccessibilityTraits()
         )
@@ -599,8 +618,11 @@ struct RepeatWeekdaySelectionView: View {
             .sorted()
             .map { shortDays[$0] }
         if selected.isEmpty {
-            return "次回の到着時に一度だけお知らせします。"
+            return AppStrings.text("次回の到着時に一度だけお知らせします。")
         }
-        return "\(selected.joined(separator: "・"))曜日に到着をお知らせします。"
+        return AppStrings.format(
+            "%@曜日に到着をお知らせします。",
+            selected.joined(separator: "・")
+        )
     }
 }

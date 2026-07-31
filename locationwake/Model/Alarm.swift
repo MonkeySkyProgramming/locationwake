@@ -341,7 +341,7 @@ enum AlarmStore {
         case unreadableData
 
         var errorDescription: String? {
-            "保存したアラームを読み込めませんでした。もう一度お試しください。"
+            AppStrings.text("保存したアラームを読み込めませんでした。もう一度お試しください。")
         }
     }
 
@@ -349,7 +349,7 @@ enum AlarmStore {
         case encodingFailed
 
         var errorDescription: String? {
-            "アラームを保存できませんでした。入力内容を確認して、もう一度お試しください。"
+            AppStrings.text("アラームを保存できませんでした。入力内容を確認して、もう一度お試しください。")
         }
     }
 

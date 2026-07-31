@@ -1,0 +1,4 @@
+"CFBundleDisplayName" = "Okinahare";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Kami menggunakan lokasi Anda bahkan saat aplikasi ditutup untuk mendeteksi kedatangan Anda di tujuan tersimpan dan memberi tahu Anda dengan alarm.";
+"NSLocationWhenInUseUsageDescription" = "Kami menggunakan lokasi Anda untuk mencari tujuan dan mengonfirmasi kedatangan Anda di tempat yang disimpan.";
+"NSUserTrackingUsageDescription" = "Kami meminta izin untuk melacak aktivitas Anda di aplikasi dan situs web perusahaan lain agar dapat menampilkan iklan yang lebih relevan dan mengukur efektivitasnya.";

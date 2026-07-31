@@ -140,7 +140,10 @@ struct AlarmListSwiftUIView: View {
         .alert("アラームを追加できません", isPresented: $showsAlarmLimitAlert) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("アラームは最大\(Alarm.maximumSavedAlarms)件です。不要なアラームを削除してから、もう一度お試しください。")
+            Text(AppStrings.format(
+                "アラームは最大%lld件です。不要なアラームを削除してから、もう一度お試しください。",
+                Alarm.maximumSavedAlarms
+            ))
         }
         .onAppear(perform: handleInitialAppearance)
         .onReceive(NotificationCenter.default.publisher(for: .alarmUpdated)) { _ in
@@ -225,7 +228,10 @@ struct AlarmListSwiftUIView: View {
                     Label {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("アラームを追加できません")
-                            Text("最大\(Alarm.maximumSavedAlarms)件です。追加するには、不要なアラームを削除してください。")
+                            Text(AppStrings.format(
+                                "最大%lld件です。追加するには、不要なアラームを削除してください。",
+                                Alarm.maximumSavedAlarms
+                            ))
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
@@ -496,13 +502,13 @@ struct AlarmListSwiftUIView: View {
             issues.contains(.notificationAuthorization)
         ) {
         case (true, true):
-            return "位置情報を「常に許可」にし、通知を許可してください"
+            return AppStrings.text("位置情報を「常に許可」にし、通知を許可してください")
         case (true, false):
-            return "位置情報を「常に許可」にしてください"
+            return AppStrings.text("位置情報を「常に許可」にしてください")
         case (false, true):
-            return "通知を許可してください"
+            return AppStrings.text("通知を許可してください")
         case (false, false):
-            return "設定を確認してください"
+            return AppStrings.text("設定を確認してください")
         }
     }
 
@@ -513,15 +519,18 @@ struct AlarmListSwiftUIView: View {
             reliabilityAlertIssues.contains(.notificationAuthorization)
         ) {
         case (true, true):
-            issueText = "位置情報を「常に許可」にし、通知を許可してください。"
+            issueText = AppStrings.text("位置情報を「常に許可」にし、通知を許可してください。")
         case (true, false):
-            issueText = "位置情報を「常に許可」にしてください。"
+            issueText = AppStrings.text("位置情報を「常に許可」にしてください。")
         case (false, true):
-            issueText = "通知を許可してください。"
+            issueText = AppStrings.text("通知を許可してください。")
         case (false, false):
-            issueText = "位置情報と通知の設定を確認してください。"
+            issueText = AppStrings.text("位置情報と通知の設定を確認してください。")
         }
-        return "アラームが作動しないことがあります。\(issueText)設定にかかわらず監視は開始します。"
+        return AppStrings.format(
+            "アラームが作動しないことがあります。%@設定にかかわらず監視は開始します。",
+            issueText
+        )
     }
 }
 
@@ -583,7 +592,9 @@ final class AlarmListViewModel: ObservableObject {
         guard persist(latestAlarms) else { return }
         UIAccessibility.post(
             notification: .announcement,
-            argument: enabled ? "アラームをオンにしました" : "アラームをオフにしました"
+            argument: enabled
+                ? AppStrings.text("アラームをオンにしました")
+                : AppStrings.text("アラームをオフにしました")
         )
     }
 
@@ -624,7 +635,7 @@ final class AlarmListViewModel: ObservableObject {
         }
         UIAccessibility.post(
             notification: .announcement,
-            argument: "\(alarm.name)を削除しました"
+            argument: AppStrings.format("%@を削除しました", alarm.name)
         )
     }
 }
@@ -644,7 +655,7 @@ private struct AlarmListRow: View {
                 VStack(alignment: .leading, spacing: 12) {
                     rowButton
                     HStack {
-                        Toggle("\(alarm.name)を有効にする", isOn: $isEnabled)
+                        Toggle(AppStrings.format("%@を有効にする", alarm.name), isOn: $isEnabled)
                         Spacer(minLength: 8)
                         actionMenu
                     }
@@ -655,8 +666,8 @@ private struct AlarmListRow: View {
                     VStack(spacing: 2) {
                         Toggle("アラームを有効にする", isOn: $isEnabled)
                             .labelsHidden()
-                            .accessibilityLabel("\(alarm.name)を有効にする")
-                            .accessibilityValue(isEnabled ? "オン" : "オフ")
+                            .accessibilityLabel(AppStrings.format("%@を有効にする", alarm.name))
+                            .accessibilityValue(AppStrings.text(isEnabled ? "オン" : "オフ"))
                         actionMenu
                     }
                 }
@@ -665,7 +676,7 @@ private struct AlarmListRow: View {
         .tint(AppDesign.tint)
         .padding(.vertical, 8)
         .confirmationDialog(
-            "「\(alarm.name)」を削除しますか？",
+            AppStrings.format("「%@」を削除しますか？", alarm.name),
             isPresented: $showsDeleteConfirmation,
             titleVisibility: .visible
         ) {
@@ -690,7 +701,7 @@ private struct AlarmListRow: View {
                         .font(.headline)
                         .foregroundStyle(.primary)
                         .multilineTextAlignment(.leading)
-                    Text(isEnabled ? detail : "オフ")
+                    Text(isEnabled ? detail : AppStrings.text("オフ"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.leading)
@@ -702,7 +713,7 @@ private struct AlarmListRow: View {
         .buttonStyle(.plain)
         .layoutPriority(1)
         .accessibilityLabel(alarm.name)
-        .accessibilityValue(isEnabled ? detail : "オフ")
+        .accessibilityValue(isEnabled ? detail : AppStrings.text("オフ"))
         .accessibilityHint("ダブルタップして設定を編集")
         .accessibilityIdentifier("home.alarm.\(alarm.id)")
     }
@@ -717,20 +728,28 @@ private struct AlarmListRow: View {
             Image(systemName: "ellipsis.circle")
                 .frame(width: 44, height: 44)
         }
-        .accessibilityLabel("\(alarm.name)の操作")
+        .accessibilityLabel(AppStrings.format("%@の操作", alarm.name))
     }
 
     private var detail: String {
-        let names = ["日", "月", "火", "水", "木", "金", "土"]
+        let names = ["日", "月", "火", "水", "木", "金", "土"].map(AppStrings.text)
         let validDays = (alarm.repeatWeekdays ?? [])
             .filter { names.indices.contains($0) }
             .sorted()
         let repeatText = validDays.isEmpty
-            ? "繰り返さない"
+            ? AppStrings.text("繰り返さない")
             : validDays.map { names[$0] }.joined(separator: "・")
-        let soundText = alarm.isSoundEnabled ? "音あり" : "音なし"
-        let vibrationText = alarm.isVibrationEnabled ? "、バイブあり" : ""
-        return "半径 \(Int(alarm.geofenceRadius ?? Alarm.defaultGeofenceRadius)) m、\(repeatText)、\(soundText)\(vibrationText)"
+        let soundText = alarm.isSoundEnabled
+            ? AppStrings.text("音あり")
+            : AppStrings.text("音なし")
+        let vibrationText = alarm.isVibrationEnabled ? AppStrings.text("、バイブあり") : ""
+        return AppStrings.format(
+            "半径 %lld m、%@、%@%@",
+            Int(alarm.geofenceRadius ?? Alarm.defaultGeofenceRadius),
+            repeatText,
+            soundText,
+            vibrationText
+        )
     }
 }
 
@@ -784,7 +803,7 @@ private struct AlarmRingingView: View {
                     .symbolEffect(.pulse, options: .repeating, isActive: !reduceMotion)
                     .accessibilityHidden(true)
 
-                Text("\(activeAlarm.name)に到着しました")
+                Text(AppStrings.format("%@に到着しました", activeAlarm.name))
                     .font(.largeTitle.bold())
                     .multilineTextAlignment(.center)
                     .accessibilityAddTraits(.isHeader)
@@ -800,7 +819,7 @@ private struct AlarmRingingView: View {
                     ) {
                         UIAccessibility.post(
                             notification: .announcement,
-                            argument: "アラームを停止しました"
+                            argument: AppStrings.text("アラームを停止しました")
                         )
                     }
                 } label: {

@@ -170,7 +170,7 @@ struct OnboardingView: View {
             onboardingFlow
                 .padding(.vertical, 8)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("場所を探す、目的地を設定する、到着をお知らせする")
+                .accessibilityLabel(AppStrings.text("場所を探す、目的地を設定する、到着をお知らせする"))
 
             preparationCallout
             .padding(18)
@@ -279,7 +279,7 @@ struct OnboardingView: View {
                 .font(.title)
                 .foregroundStyle(color)
                 .frame(width: 44, height: 44)
-            Text(title)
+            Text(AppStrings.text(title))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -298,7 +298,7 @@ struct OnboardingView: View {
                 .font(.title)
                 .foregroundStyle(color)
                 .frame(width: 44, height: 44)
-            Text(title)
+            Text(AppStrings.text(title))
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -457,30 +457,30 @@ struct OnboardingView: View {
     private var locationStatus: (text: String, isReady: Bool)? {
         switch permissionReadiness.snapshot.locationAuthorization {
         case .authorizedAlways:
-            return ("「常に許可」が選ばれています。iOSから確認が表示された場合も「常に許可」を選んでください", true)
+            return (AppStrings.text("「常に許可」が選ばれています。iOSから確認が表示された場合も「常に許可」を選んでください"), true)
         case .authorizedWhenInUse:
-            return ("現在は「このAppの使用中」です", false)
+            return (AppStrings.text("現在は「このAppの使用中」です"), false)
         case .denied:
-            return ("位置情報は許可されていません", false)
+            return (AppStrings.text("位置情報は許可されていません"), false)
         case .restricted:
-            return ("この端末では位置情報が制限されています", false)
+            return (AppStrings.text("この端末では位置情報が制限されています"), false)
         case .notDetermined:
             return nil
         @unknown default:
-            return ("位置情報の状態を確認できません", false)
+            return (AppStrings.text("位置情報の状態を確認できません"), false)
         }
     }
 
     private var notificationStatus: (text: String, isReady: Bool)? {
         switch permissionReadiness.snapshot.notificationAuthorization {
         case .authorized, .provisional, .ephemeral:
-            return ("通知は許可されています", true)
+            return (AppStrings.text("通知は許可されています"), true)
         case .denied:
-            return ("通知は許可されていません", false)
+            return (AppStrings.text("通知は許可されていません"), false)
         case .notDetermined:
             return nil
         @unknown default:
-            return ("通知の状態を確認できません", false)
+            return (AppStrings.text("通知の状態を確認できません"), false)
         }
     }
 
@@ -496,12 +496,12 @@ struct OnboardingView: View {
                 .font(.system(size: displayedHeroSymbolSize, weight: .regular))
                 .foregroundStyle(AppDesign.tint)
                 .accessibilityHidden(true)
-            Text(title)
+            Text(AppStrings.text(title))
                 .font(.largeTitle.bold())
                 .multilineTextAlignment(.center)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityFocused($accessibilityFocus, equals: .stepHeading)
-            Text(message)
+            Text(AppStrings.text(message))
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -528,7 +528,7 @@ struct OnboardingView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Text(title)
+            Text(AppStrings.text(title))
                 .fontWeight(.semibold)
                 .frame(maxWidth: .infinity, minHeight: 28)
         }
@@ -544,7 +544,7 @@ struct OnboardingView: View {
         identifier: String,
         action: @escaping () -> Void
     ) -> some View {
-        Button(title, action: action)
+        Button(AppStrings.text(title), action: action)
             .buttonStyle(.borderless)
             .frame(minHeight: 44)
             .padding(.top, 4)

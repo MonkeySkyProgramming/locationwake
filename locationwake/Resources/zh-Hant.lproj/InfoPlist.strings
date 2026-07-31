@@ -1,0 +1,4 @@
+"CFBundleDisplayName" = "起床吧";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "即使關閉 App，我們也會使用您的位置來偵測您是否抵達已儲存的目的地，並透過鬧鐘通知您。";
+"NSLocationWhenInUseUsageDescription" = "我們會使用您的位置搜尋目的地，並確認您是否抵達已儲存的地點。";
+"NSUserTrackingUsageDescription" = "我們請求許可，以追蹤您在其他公司 App 和網站中的活動，從而顯示更相關的廣告並衡量廣告成效。";

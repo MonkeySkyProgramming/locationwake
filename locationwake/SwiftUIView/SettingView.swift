@@ -225,7 +225,7 @@ struct SettingView: View {
         for snapshot: PermissionReadinessSnapshot
     ) -> String {
         if snapshot.isReadyForReliableArrival {
-            return "到着通知の設定は完了しています"
+            return AppStrings.text("到着通知の設定は完了しています")
         }
         return snapshot.issues.map(\.title).joined(separator: "。")
     }
@@ -236,7 +236,7 @@ struct SettingView: View {
         iconColor: Color = AppDesign.tint
     ) -> some View {
         Label {
-            Text(title)
+            Text(AppStrings.text(title))
                 .foregroundStyle(.primary)
         } icon: {
             Image(systemName: systemImage)

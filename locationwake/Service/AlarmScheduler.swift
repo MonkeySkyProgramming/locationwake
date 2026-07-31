@@ -137,10 +137,15 @@ class AlarmScheduler {
         occurrenceID: String? = nil
     ) -> UNNotificationRequest {
         let content = UNMutableNotificationContent()
-        content.title = isRinging ? "到着アラーム" : "目的地に到着しました"
+        content.title = isRinging
+            ? AppStrings.text("到着アラーム")
+            : AppStrings.text("目的地に到着しました")
         content.body = isRinging
-            ? "\(alarm.name)に到着しました。アプリを開き、停止ボタンで止めてください。"
-            : "\(alarm.name)への到着を記録しました。"
+            ? AppStrings.format(
+                "%@に到着しました。アプリを開き、停止ボタンで止めてください。",
+                alarm.name
+            )
+            : AppStrings.format("%@への到着を記録しました。", alarm.name)
         content.userInfo = [
             "alarmID": alarm.id,
             "occurrenceID": occurrenceID

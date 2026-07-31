@@ -18,7 +18,7 @@ enum RadiusChoice: String, CaseIterable, Identifiable {
         case .fiveHundred: "500 m"
         case .oneKilometer: "1 km"
         case .threeKilometers: "3 km"
-        case .custom: "カスタム"
+        case .custom: AppStrings.text("カスタム")
         }
     }
 
@@ -70,7 +70,7 @@ struct RadiusPickerControl: View {
                         in: Alarm.minimumGeofenceRadius...Alarm.maximumGeofenceRadius,
                         step: 100
                     )
-                    .accessibilityLabel("カスタムの到着範囲")
+                    .accessibilityLabel(AppStrings.text("カスタムの到着範囲"))
                     .accessibilityValue(exactValue)
 
                     Text(exactValue)
@@ -98,7 +98,7 @@ struct RadiusPickerControl: View {
     }
 
     private var exactValue: String {
-        "\(Int(radius.rounded())) m"
+        AppStrings.format("%lld m", Int(radius.rounded()))
     }
 }
 

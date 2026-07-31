@@ -14,13 +14,13 @@ enum PermissionReadinessIssue: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .locationAlways:
-            return "位置情報を「常に許可」にしてください"
+            return AppStrings.text("位置情報を「常に許可」にしてください")
         case .preciseLocation:
-            return "正確な位置情報をオンにしてください"
+            return AppStrings.text("正確な位置情報をオンにしてください")
         case .notificationAuthorization:
-            return "通知を許可してください"
+            return AppStrings.text("通知を許可してください")
         case .notificationSound:
-            return "通知のサウンドをオンにしてください"
+            return AppStrings.text("通知のサウンドをオンにしてください")
         }
     }
 

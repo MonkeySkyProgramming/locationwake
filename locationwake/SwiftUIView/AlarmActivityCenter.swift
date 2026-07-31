@@ -258,7 +258,7 @@ final class AlarmActivityCenter: ObservableObject {
         performOnMainSynchronously {
             guard let alarmID = stateMachine.activeAlarmID else { return }
             let alarmName = Self.persistedRecord(in: defaults)?.name
-                ?? "到着アラーム"
+                ?? AppStrings.text("到着アラーム")
             activeAlarm = ActiveAlarmPresentation(
                 alarmID: alarmID,
                 name: alarmName
@@ -368,7 +368,7 @@ final class AlarmActivityCenter: ObservableObject {
             alarmID: alarmID,
             occurrenceID: occurrenceID,
             name: defaults.string(forKey: DefaultsKey.activeAlarmName)
-                ?? "到着アラーム",
+                ?? AppStrings.text("到着アラーム"),
             sound: defaults.string(forKey: DefaultsKey.activeAlarmSound),
             isSoundEnabled: defaults.object(
                 forKey: DefaultsKey.activeAlarmSoundEnabled

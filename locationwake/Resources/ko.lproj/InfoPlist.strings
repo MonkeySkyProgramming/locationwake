@@ -1,0 +1,4 @@
+"CFBundleDisplayName" = "오키나하레";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "앱이 닫혀 있는 동안에도 저장한 목적지 도착을 감지하고 알람으로 알려 드리기 위해 위치를 사용합니다.";
+"NSLocationWhenInUseUsageDescription" = "목적지를 검색하고 저장한 장소에 도착했는지 확인하기 위해 위치를 사용합니다.";
+"NSUserTrackingUsageDescription" = "더 관련성 높은 광고를 표시하고 광고 효과를 측정하기 위해 다른 회사의 앱과 웹사이트 전반에서 활동을 추적할 수 있도록 권한을 요청합니다.";
