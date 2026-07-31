@@ -315,6 +315,8 @@ struct AlarmListSwiftUIView: View {
                         Button(action: openNewAlarmFlow) {
                             Label("目的地を追加", systemImage: "plus.circle.fill")
                                 .frame(maxWidth: .infinity)
+                                .symbolRenderingMode(.monochrome)
+                                .foregroundStyle(.white)
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
