@@ -68,12 +68,17 @@ struct OnboardingView: View {
 
             ScrollViewReader { proxy in
                 ScrollView {
-                    stepContent
-                        .id(ScrollTarget.stepTop)
-                        .frame(maxWidth: .infinity)
-                        .padding(.horizontal, 28)
-                        .padding(.top, 24)
-                        .padding(.bottom, 20)
+                    VStack(spacing: 16) {
+                        if let permissionStepIndex {
+                            permissionProgress(step: permissionStepIndex)
+                        }
+                        stepContent
+                    }
+                    .id(ScrollTarget.stepTop)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 28)
+                    .padding(.top, 20)
+                    .padding(.bottom, 20)
                 }
                 .onChange(of: step) { _, _ in
                     accessibilityFocus = nil
@@ -128,7 +133,7 @@ struct OnboardingView: View {
         case .notification:
             onboardingMessage(
                 symbol: "bell.badge.fill",
-                title: "到着をお知らせするために",
+                title: "到着を知らせるために",
                 message: "目的地に近づいたことを、通知・音・バイブレーションでお知らせします。通知はあとから設定でも変更できます。",
                 status: notificationStatus
             )
@@ -188,6 +193,30 @@ struct OnboardingView: View {
         dynamicTypeSize.isAccessibilitySize
             ? min(heroSymbolSize, 96)
             : heroSymbolSize
+    }
+
+    private var permissionStepIndex: Int? {
+        switch step {
+        case .intro:
+            nil
+        case .location:
+            1
+        case .notification:
+            2
+        }
+    }
+
+    private func permissionProgress(step: Int) -> some View {
+        HStack(spacing: 8) {
+            Text("設定 \(step) / 2")
+                .font(.subheadline.weight(.semibold))
+            ProgressView(value: Double(step), total: 2)
+                .tint(AppDesign.tint)
+        }
+        .foregroundStyle(.secondary)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("設定 \(step) / 2")
+        .accessibilityValue(step == 1 ? "位置情報" : "通知")
     }
 
     @ViewBuilder
@@ -490,10 +519,10 @@ struct OnboardingView: View {
         message: String,
         status: (text: String, isReady: Bool)? = nil
     ) -> some View {
-        VStack(spacing: 24) {
-            Spacer(minLength: 24)
+        VStack(spacing: 16) {
+            Spacer(minLength: 12)
             Image(systemName: symbol)
-                .font(.system(size: displayedHeroSymbolSize, weight: .regular))
+                .font(.system(size: min(displayedHeroSymbolSize, 84), weight: .regular))
                 .foregroundStyle(AppDesign.tint)
                 .accessibilityHidden(true)
             Text(AppStrings.text(title))
@@ -517,9 +546,9 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
                 .accessibilityFocused($accessibilityFocus, equals: .authorizationStatus)
             }
-            Spacer(minLength: 24)
+            Spacer(minLength: 12)
         }
-        .frame(minHeight: 430)
+        .frame(minHeight: 360)
     }
 
     private func primaryButton(

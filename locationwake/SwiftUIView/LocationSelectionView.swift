@@ -50,7 +50,7 @@ struct LocationSelectionView: View {
         if dynamicTypeSize.isAccessibilitySize {
             return 180
         }
-        return resultItems.isEmpty ? 300 : 260
+        return resultItems.isEmpty ? 220 : 260
     }
 
     private var mapAccessibilityValue: String {
@@ -119,7 +119,7 @@ struct LocationSelectionView: View {
             ContentUnavailableView {
                 Label("場所を検索", systemImage: "magnifyingglass")
             } description: {
-                Text("駅名・場所を入力して目的地を選択します。")
+                Text("駅名や場所を入力して目的地を選択します。例：大阪駅、職場、自宅の最寄り駅")
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityIdentifier("locationSelection.idle")

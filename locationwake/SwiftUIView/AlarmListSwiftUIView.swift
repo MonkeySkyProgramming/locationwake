@@ -206,7 +206,9 @@ struct AlarmListSwiftUIView: View {
                     Button {
                         navigationModel.path.append(.settings)
                     } label: {
-                        Label {
+                        HStack(spacing: 12) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("到着通知に必要な設定があります")
                                     .foregroundStyle(.primary)
@@ -214,9 +216,16 @@ struct AlarmListSwiftUIView: View {
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                             }
-                        } icon: {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
+                            Spacer(minLength: 8)
+                            VStack(alignment: .trailing, spacing: 3) {
+                                Text("設定を開く")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppDesign.tint)
+                                Image(systemName: "chevron.right")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .accessibilityHidden(true)
                         }
                     }
                     .accessibilityHint("設定画面を開きます")
@@ -314,7 +323,7 @@ struct AlarmListSwiftUIView: View {
                             .accessibilityHidden(true)
                         Text("アラームはまだありません")
                             .font(.title3.bold())
-                        Text("目的地を追加すると、到着したときにお知らせします。")
+                        Text("駅名や場所を検索して目的地を選ぶと、到着したときにお知らせします。")
                             .font(.body)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -657,24 +666,27 @@ private struct AlarmListRow: View {
                     HStack {
                         Toggle(AppStrings.format("%@を有効にする", alarm.name), isOn: $isEnabled)
                         Spacer(minLength: 8)
-                        actionMenu
                     }
                 }
             } else {
                 HStack(spacing: 12) {
                     rowButton
-                    VStack(spacing: 2) {
-                        Toggle("アラームを有効にする", isOn: $isEnabled)
-                            .labelsHidden()
-                            .accessibilityLabel(AppStrings.format("%@を有効にする", alarm.name))
-                            .accessibilityValue(AppStrings.text(isEnabled ? "オン" : "オフ"))
-                        actionMenu
-                    }
+                    enabledToggle
                 }
             }
         }
         .tint(AppDesign.tint)
         .padding(.vertical, 8)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                showsDeleteConfirmation = true
+            } label: {
+                Label("削除", systemImage: "trash")
+            }
+        }
+        .accessibilityAction(named: Text("削除")) {
+            showsDeleteConfirmation = true
+        }
         .confirmationDialog(
             AppStrings.format("「%@」を削除しますか？", alarm.name),
             isPresented: $showsDeleteConfirmation,
@@ -718,17 +730,11 @@ private struct AlarmListRow: View {
         .accessibilityIdentifier("home.alarm.\(alarm.id)")
     }
 
-    private var actionMenu: some View {
-        Menu {
-            Button("設定を開く", systemImage: "slider.horizontal.3", action: onOpen)
-            Button("アラームを削除", systemImage: "trash", role: .destructive) {
-                showsDeleteConfirmation = true
-            }
-        } label: {
-            Image(systemName: "ellipsis.circle")
-                .frame(width: 44, height: 44)
-        }
-        .accessibilityLabel(AppStrings.format("%@の操作", alarm.name))
+    private var enabledToggle: some View {
+        Toggle("アラームを有効にする", isOn: $isEnabled)
+            .labelsHidden()
+            .accessibilityLabel(AppStrings.format("%@を有効にする", alarm.name))
+            .accessibilityValue(AppStrings.text(isEnabled ? "オン" : "オフ"))
     }
 
     private var detail: String {
