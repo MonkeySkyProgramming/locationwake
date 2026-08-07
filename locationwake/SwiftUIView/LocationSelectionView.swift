@@ -276,7 +276,8 @@ struct LocationSelectionView: View {
 
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
-        request.region = region
+        // 地図の表示範囲は検索順位のヒントに使わない。駅名・地名は世界規模で検索し、
+        // 例えば大阪を表示中でも「京都駅」を京都の駅として検索できるようにする。
 
         let search = MKLocalSearch(request: request)
         activeSearch = search

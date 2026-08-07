@@ -412,13 +412,15 @@ struct AlarmDetailView: View {
         if !AppRuntime.shouldSuppressExternalSideEffects {
             LocationManager.shared.startMonitoring(alarms: savedAlarms)
         }
+        // 保存後の画面遷移は NavigationStack の経路を唯一の情報源とする。
+        // dismiss() を重ねると、保存後に出す設定警告と遷移が競合して
+        // 戻るボタンだけの空画面が残ることがある。
+        navigationModel.path = []
         NotificationCenter.default.post(name: .alarmSaved, object: savedAlarm)
         UIAccessibility.post(
             notification: .announcement,
             argument: AppStrings.text("アラームを保存しました")
         )
-        navigationModel.path = []
-        dismiss()
     }
 
     private func refreshMonitoringFailure() {

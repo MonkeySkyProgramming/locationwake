@@ -112,4 +112,50 @@ final class locationwakeUITests: XCTestCase {
         XCTAssertTrue(restoredAlarm.exists)
         XCTAssertEqual(restoredAlarm.label, "テスト駅")
     }
+
+    func testSavedAlarmDeletionOffersUndo() throws {
+        app.launchArguments.append("--ui-test-seed-alarm")
+        app.launch()
+
+        let savedAlarm = app.buttons.matching(
+            identifier: "home.alarm.ui-test-saved-alarm"
+        ).firstMatch
+        XCTAssertTrue(savedAlarm.waitForExistence(timeout: 10))
+
+        savedAlarm.swipeLeft()
+        let swipeDeleteButton = app.buttons["削除"].firstMatch
+        XCTAssertTrue(swipeDeleteButton.waitForExistence(timeout: 5))
+        swipeDeleteButton.tap()
+
+        XCTAssertTrue(savedAlarm.waitForNonExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["「テスト駅」を削除しますか？"].exists)
+
+        let undoButton = app.buttons.matching(identifier: "home.undoDelete").firstMatch
+        XCTAssertTrue(undoButton.waitForExistence(timeout: 5))
+        undoButton.tap()
+
+        XCTAssertTrue(savedAlarm.waitForExistence(timeout: 5))
+    }
+
+    func testReliabilityAlertReturnsToHomeAfterSavingAlarm() throws {
+        app.launchArguments.append("--ui-test-seed-alarm")
+        app.launch()
+
+        let savedAlarm = app.buttons.matching(
+            identifier: "home.alarm.ui-test-saved-alarm"
+        ).firstMatch
+        XCTAssertTrue(savedAlarm.waitForExistence(timeout: 10))
+        savedAlarm.tap()
+
+        XCTAssertTrue(app.navigationBars["アラームを編集"].waitForExistence(timeout: 10))
+        app.buttons["保存"].tap()
+
+        XCTAssertTrue(
+            app.staticTexts["到着通知の設定を確認してください"].waitForExistence(timeout: 10)
+        )
+        app.buttons["あとで"].tap()
+
+        XCTAssertTrue(app.navigationBars["アラーム"].waitForExistence(timeout: 10))
+        XCTAssertTrue(savedAlarm.waitForExistence(timeout: 10))
+    }
 }

@@ -61,6 +61,8 @@ struct AlarmListSwiftUIView: View {
     @State private var showsFirstRunOnboarding = false
     @State private var showsReliabilityAlert = false
     @State private var showsAlarmLimitAlert = false
+    @State private var undoableDeletion: AlarmListViewModel.Deletion?
+    @State private var undoDismissalToken = UUID()
     @State private var pendingPostSaveReview = false
     @State private var postSaveRefreshCompleted = false
     @State private var pendingAuthorizationIssues: [PermissionReadinessIssue] = []
@@ -132,6 +134,7 @@ struct AlarmListSwiftUIView: View {
                 scheduleATTRequest()
             }
             Button("あとで", role: .cancel) {
+                returnToHome()
                 scheduleATTRequest()
             }
         } message: {
@@ -183,6 +186,17 @@ struct AlarmListSwiftUIView: View {
                 accessibilityFocus = .retryButton
             }
         }
+        .overlay(alignment: .bottom) {
+            if let undoableDeletion {
+                AlarmDeletionUndoBanner(
+                    alarmName: undoableDeletion.alarm.name,
+                    onUndo: undoAlarmDeletion
+                )
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
     }
 
     private var alarmList: some View {
@@ -216,19 +230,9 @@ struct AlarmListSwiftUIView: View {
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                             }
-                            Spacer(minLength: 8)
-                            VStack(alignment: .trailing, spacing: 3) {
-                                Text("設定を開く")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(AppDesign.tint)
-                                Image(systemName: "chevron.right")
-                                    .font(.footnote.weight(.semibold))
-                                    .foregroundStyle(.tertiary)
-                            }
-                            .accessibilityHidden(true)
                         }
                     }
-                    .accessibilityHint("設定画面を開きます")
+                    .accessibilityHint("必要な設定を確認します")
                 }
             }
 
@@ -261,6 +265,17 @@ struct AlarmListSwiftUIView: View {
                     }
                     .disabled(!viewModel.canAddAlarm)
                     .accessibilityIdentifier("home.addDestination")
+                }
+            }
+
+            if viewModel.loadState == .loaded {
+                Section {
+                    // 最後の操作を広告や画面端から離し、スクロール後も押しやすくする。
+                    Color.clear
+                        .frame(height: 88)
+                        .accessibilityHidden(true)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
             }
         }
@@ -373,7 +388,7 @@ struct AlarmListSwiftUIView: View {
                                 )
                             },
                             onDelete: {
-                                viewModel.deleteAlarm(id: alarm.id)
+                                deleteAlarm(alarm)
                             }
                         )
                     }
@@ -388,6 +403,32 @@ struct AlarmListSwiftUIView: View {
 
     private var hasAuthorizationIssue: Bool {
         !permissionReadiness.snapshot.authorizationIssues.isEmpty
+    }
+
+    private func deleteAlarm(_ alarm: Alarm) {
+        guard let deletion = viewModel.deleteAlarm(id: alarm.id) else { return }
+        showUndo(for: deletion)
+    }
+
+    private func undoAlarmDeletion() {
+        guard let deletion = undoableDeletion else { return }
+        undoableDeletion = nil
+        undoDismissalToken = UUID()
+        _ = viewModel.restore(deletion)
+    }
+
+    private func showUndo(for deletion: AlarmListViewModel.Deletion) {
+        let token = UUID()
+        undoDismissalToken = token
+        withAnimation {
+            undoableDeletion = deletion
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            guard undoDismissalToken == token else { return }
+            withAnimation {
+                undoableDeletion = nil
+            }
+        }
     }
 
     private func openNewAlarmFlow() {
@@ -504,6 +545,11 @@ struct AlarmListSwiftUIView: View {
         }
     }
 
+    private func returnToHome() {
+        navigationModel.presentedSheet = nil
+        navigationModel.path = []
+    }
+
     private var authorizationIssueSummary: String {
         let issues = permissionReadiness.snapshot.authorizationIssues
         switch (
@@ -551,6 +597,11 @@ enum AlarmListLoadState: Equatable {
 
 @MainActor
 final class AlarmListViewModel: ObservableObject {
+    struct Deletion {
+        let alarm: Alarm
+        let originalIndex: Int
+    }
+
     @Published var alarms: [Alarm] = []
     @Published var loadState: AlarmListLoadState = .loading
 
@@ -628,17 +679,18 @@ final class AlarmListViewModel: ObservableObject {
         return true
     }
 
-    func deleteAlarm(id: String) {
+    @discardableResult
+    func deleteAlarm(id: String) -> Deletion? {
         guard case .success(var latestAlarms) = AlarmStore.loadResult() else {
             loadAlarms()
-            return
+            return nil
         }
         guard let index = latestAlarms.firstIndex(where: { $0.id == id }) else {
             loadAlarms()
-            return
+            return nil
         }
         let alarm = latestAlarms.remove(at: index)
-        guard persist(latestAlarms) else { return }
+        guard persist(latestAlarms) else { return nil }
         if !AppRuntime.shouldSuppressExternalSideEffects {
             LocationManager.shared.stopMonitoringForAlarm(alarm: alarm)
         }
@@ -646,6 +698,29 @@ final class AlarmListViewModel: ObservableObject {
             notification: .announcement,
             argument: AppStrings.format("%@を削除しました", alarm.name)
         )
+        return Deletion(alarm: alarm, originalIndex: index)
+    }
+
+    @discardableResult
+    func restore(_ deletion: Deletion) -> Bool {
+        guard case .success(var latestAlarms) = AlarmStore.loadResult() else {
+            loadAlarms()
+            return false
+        }
+        guard !latestAlarms.contains(where: { $0.id == deletion.alarm.id }),
+              latestAlarms.count < Alarm.maximumSavedAlarms else {
+            loadAlarms()
+            return false
+        }
+
+        let insertionIndex = min(deletion.originalIndex, latestAlarms.count)
+        latestAlarms.insert(deletion.alarm, at: insertionIndex)
+        guard persist(latestAlarms) else { return false }
+        UIAccessibility.post(
+            notification: .announcement,
+            argument: AppStrings.format("%@を復元しました", deletion.alarm.name)
+        )
+        return true
     }
 }
 
@@ -656,7 +731,6 @@ private struct AlarmListRow: View {
     let onDelete: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var showsDeleteConfirmation = false
 
     var body: some View {
         Group {
@@ -679,21 +753,13 @@ private struct AlarmListRow: View {
         .padding(.vertical, 8)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive) {
-                showsDeleteConfirmation = true
+                onDelete()
             } label: {
                 Label("削除", systemImage: "trash")
             }
         }
         .accessibilityAction(named: Text("削除")) {
-            showsDeleteConfirmation = true
-        }
-        .confirmationDialog(
-            AppStrings.format("「%@」を削除しますか？", alarm.name),
-            isPresented: $showsDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("削除", role: .destructive, action: onDelete)
-            Button("キャンセル", role: .cancel) {}
+            onDelete()
         }
     }
 
@@ -713,17 +779,31 @@ private struct AlarmListRow: View {
                         .font(.headline)
                         .foregroundStyle(.primary)
                         .multilineTextAlignment(.leading)
-                    Text(isEnabled ? detail : AppStrings.text("オフ"))
+                    if isEnabled {
+                        Text(scheduleDetail)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.leading)
+
+                        HStack(spacing: 8) {
+                            Image(systemName: soundIconName)
+                            Image(systemName: vibrationIconName)
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                    } else {
+                        Text(AppStrings.text("オフ"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.leading)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .layoutPriority(1)
         .accessibilityLabel(alarm.name)
         .accessibilityValue(isEnabled ? detail : AppStrings.text("オフ"))
         .accessibilityHint("ダブルタップして設定を編集")
@@ -738,6 +818,15 @@ private struct AlarmListRow: View {
     }
 
     private var detail: String {
+        AppStrings.format(
+            "%@、%@、%@",
+            scheduleDetail,
+            soundStatus,
+            vibrationStatus
+        )
+    }
+
+    private var scheduleDetail: String {
         let names = ["日", "月", "火", "水", "木", "金", "土"].map(AppStrings.text)
         let validDays = (alarm.repeatWeekdays ?? [])
             .filter { names.indices.contains($0) }
@@ -745,17 +834,55 @@ private struct AlarmListRow: View {
         let repeatText = validDays.isEmpty
             ? AppStrings.text("繰り返さない")
             : validDays.map { names[$0] }.joined(separator: "・")
-        let soundText = alarm.isSoundEnabled
+        return AppStrings.format(
+            "到着範囲 %lld m・%@",
+            Int(alarm.geofenceRadius ?? Alarm.defaultGeofenceRadius),
+            repeatText
+        )
+    }
+
+    private var soundStatus: String {
+        alarm.isSoundEnabled
             ? AppStrings.text("音あり")
             : AppStrings.text("音なし")
-        let vibrationText = alarm.isVibrationEnabled ? AppStrings.text("、バイブあり") : ""
-        return AppStrings.format(
-            "半径 %lld m、%@、%@%@",
-            Int(alarm.geofenceRadius ?? Alarm.defaultGeofenceRadius),
-            repeatText,
-            soundText,
-            vibrationText
-        )
+    }
+
+    private var vibrationStatus: String {
+        alarm.isVibrationEnabled
+            ? AppStrings.text("バイブあり")
+            : AppStrings.text("バイブなし")
+    }
+
+    private var soundIconName: String {
+        alarm.isSoundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill"
+    }
+
+    private var vibrationIconName: String {
+        alarm.isVibrationEnabled
+            ? "iphone.radiowaves.left.and.right"
+            : "iphone"
+    }
+}
+
+private struct AlarmDeletionUndoBanner: View {
+    let alarmName: String
+    let onUndo: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(AppStrings.format("%@を削除しました", alarmName))
+                .font(.subheadline)
+                .lineLimit(2)
+            Spacer(minLength: 0)
+            Button("取り消す", action: onUndo)
+                .font(.subheadline.weight(.semibold))
+                .accessibilityIdentifier("home.undoDelete")
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(.black.opacity(0.86), in: Capsule())
+        .accessibilityElement(children: .contain)
     }
 }
 
