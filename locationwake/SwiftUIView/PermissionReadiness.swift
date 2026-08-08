@@ -238,9 +238,23 @@ final class PermissionReadiness: NSObject, ObservableObject {
         }
     }
 
-    func openAppSettings() {
-        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-        UIApplication.shared.open(url)
+    func openAppSettings(after delay: TimeInterval = 0) {
+        openSettings(
+            urlString: UIApplication.openSettingsURLString,
+            after: delay
+        )
+    }
+
+    private func openSettings(urlString: String, after delay: TimeInterval) {
+        guard let url = URL(string: urlString) else { return }
+        let openSettings = {
+            UIApplication.shared.open(url)
+        }
+        if delay > 0 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: openSettings)
+        } else {
+            openSettings()
+        }
     }
 
     @objc private func handleAuthorizationEnvironmentChange() {

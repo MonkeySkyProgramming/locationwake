@@ -12463,6 +12463,9 @@
         }
       }
     },
+    "到着通知の設定を確認" : {
+
+    },
     "到着通知の設定を確認してください" : {
       "localizations" : {
         "de" : {
@@ -13888,6 +13891,9 @@
           }
         }
       }
+    },
+    "必要な設定を確認します" : {
+
     },
     "新しいアラーム" : {
       "localizations" : {
@@ -19590,6 +19596,7 @@
       }
     },
     "設定を確認" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -20063,6 +20070,7 @@
       }
     },
     "設定画面を開きます" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {

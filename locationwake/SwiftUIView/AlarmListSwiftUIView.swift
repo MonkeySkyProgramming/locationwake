@@ -60,6 +60,7 @@ struct AlarmListSwiftUIView: View {
 
     @State private var showsFirstRunOnboarding = false
     @State private var showsReliabilityAlert = false
+    @State private var showsHomePermissionGuidance = false
     @State private var showsAlarmLimitAlert = false
     @State private var undoableDeletion: AlarmListViewModel.Deletion?
     @State private var undoDismissalToken = UUID()
@@ -129,8 +130,8 @@ struct AlarmListSwiftUIView: View {
             "到着通知の設定を確認してください",
             isPresented: $showsReliabilityAlert
         ) {
-            Button("設定を確認") {
-                navigationModel.path = [.settings]
+            Button("設定を開く") {
+                permissionReadiness.openAppSettings(after: 0.25)
                 scheduleATTRequest()
             }
             Button("あとで", role: .cancel) {
@@ -139,6 +140,17 @@ struct AlarmListSwiftUIView: View {
             }
         } message: {
             Text(reliabilityAlertMessage)
+        }
+        .alert(
+            "到着通知の設定を確認",
+            isPresented: $showsHomePermissionGuidance
+        ) {
+            Button("設定を開く") {
+                permissionReadiness.openAppSettings(after: 0.25)
+            }
+            Button("あとで", role: .cancel) {}
+        } message: {
+            Text(homePermissionGuidanceMessage)
         }
         .alert("アラームを追加できません", isPresented: $showsAlarmLimitAlert) {
             Button("OK", role: .cancel) {}
@@ -218,7 +230,7 @@ struct AlarmListSwiftUIView: View {
             if hasAuthorizationIssue {
                 Section {
                     Button {
-                        navigationModel.path.append(.settings)
+                        showsHomePermissionGuidance = true
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "exclamationmark.triangle.fill")
@@ -565,6 +577,13 @@ struct AlarmListSwiftUIView: View {
         case (false, false):
             return AppStrings.text("設定を確認してください")
         }
+    }
+
+    private var homePermissionGuidanceMessage: String {
+        AppStrings.format(
+            "到着通知を受け取るには、%@。iPhoneの設定で変更できます。",
+            authorizationIssueSummary
+        )
     }
 
     private var reliabilityAlertMessage: String {

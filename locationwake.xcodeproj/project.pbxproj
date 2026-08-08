@@ -29,6 +29,7 @@
 		13E84A782C8951F700C933F6 /* kind.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A752C8951F700C933F6 /* kind.mp3 */; };
 		A11CE0012F0A000100000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A11CE0022F0A000100000001 /* Localizable.xcstrings */; };
 		A11CE1012F0A000100000001 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A11CE1022F0A000100000001 /* InfoPlist.strings */; };
+		C0D3A0013F00000100000001 /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = C0D3A0023F00000100000001 /* Settings.bundle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -95,6 +96,7 @@
 		13E84A742C8951F700C933F6 /* siren.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = siren.mp3; sourceTree = "<group>"; };
 		13E84A752C8951F700C933F6 /* kind.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = kind.mp3; sourceTree = "<group>"; };
 		A11CE0022F0A000100000001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		C0D3A0023F00000100000001 /* Settings.bundle */ = {isa = PBXFileReference; lastKnownFileType = wrapper.plug-in; path = Settings.bundle; sourceTree = "<group>"; };
 		F35D748A9EC20B23C6171DBB /* Pods_locationwake.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_locationwake.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -222,6 +224,7 @@
 		13E84A6C2C87284000C933F6 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				C0D3A0023F00000100000001 /* Settings.bundle */,
 				13E84A752C8951F700C933F6 /* kind.mp3 */,
 				13E84A732C8951F700C933F6 /* modan.mp3 */,
 				13E84A742C8951F700C933F6 /* siren.mp3 */,
@@ -370,6 +373,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0D3A0013F00000100000001 /* Settings.bundle in Resources */,
 				130C18062DFAA17500A9F556 /* .gitignore in Resources */,
 				13E84A222C86B4F700C933F6 /* Assets.xcassets in Resources */,
 				A11CE0012F0A000100000001 /* Localizable.xcstrings in Resources */,
