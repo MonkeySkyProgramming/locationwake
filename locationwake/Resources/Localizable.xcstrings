@@ -2740,121 +2740,121 @@
         }
       }
     },
-    "アラームが作動しないことがあります。%@設定にかかわらず監視は開始します。" : {
+    "アラームが作動しないことがあります。%@" : {
       "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Der Alarm wird möglicherweise nicht ausgelöst. Die Überwachung startet unabhängig von den %@-Einstellungen."
+            "value" : "Der Alarm wird möglicherweise nicht ausgelöst. %@"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The alarm may not go off. Monitoring will start regardless of %@ settings."
+            "value" : "The alarm may not go off. %@"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Es posible que la alarma no suene. El monitoreo comenzará independientemente de la configuración de %@."
+            "value" : "Es posible que la alarma no suene. %@"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "L’alarme peut ne pas se déclencher. La surveillance démarrera indépendamment des réglages de %@."
+            "value" : "L’alarme peut ne pas se déclencher. %@"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "अलार्म काम न करे ऐसा हो सकता है। %@ सेटिंग के बावजूद निगरानी शुरू होगी।"
+            "value" : "अलार्म काम न करे ऐसा हो सकता है। %@"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alarm mungkin tidak berfungsi. Pemantauan akan dimulai terlepas dari pengaturan %@."
+            "value" : "Alarm mungkin tidak berfungsi. %@"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "L’allarme potrebbe non attivarsi. Il monitoraggio inizierà indipendentemente dalle impostazioni di %@."
+            "value" : "L’allarme potrebbe non attivarsi. %@"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "알람이 작동하지 않을 수 있습니다. %@ 설정과 관계없이 모니터링을 시작합니다."
+            "value" : "알람이 작동하지 않을 수 있습니다. %@"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Het alarm werkt mogelijk niet. Bewaking start ongeacht de %@-instelling."
+            "value" : "Het alarm werkt mogelijk niet. %@"
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alarm może nie działać. Monitorowanie rozpocznie się niezależnie od ustawienia %@."
+            "value" : "Alarm może nie działać. %@"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "O alarme pode não disparar. O monitoramento será iniciado independentemente das configurações de %@."
+            "value" : "O alarme pode não disparar. %@"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Будильник может не сработать. Отслеживание начнётся независимо от настройки %@."
+            "value" : "Будильник может не сработать. %@"
           }
         },
         "sv" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Larmet kanske inte fungerar. Övervakningen startar oavsett inställningen %@."
+            "value" : "Larmet kanske inte fungerar. %@"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "การปลุกอาจไม่ทำงาน การติดตามจะเริ่มโดยไม่ขึ้นกับการตั้งค่า %@"
+            "value" : "การปลุกอาจไม่ทำงาน %@"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alarm çalışmayabilir. İzleme, %@ ayarından bağımsız olarak başlatılır."
+            "value" : "Alarm çalışmayabilir. %@"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Будильник може не спрацювати. Відстеження почнеться незалежно від налаштування %@."
+            "value" : "Будильник може не спрацювати. %@"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Báo thức có thể không hoạt động. Việc theo dõi sẽ bắt đầu bất kể cài đặt %@."
+            "value" : "Báo thức có thể không hoạt động. %@"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "闹钟可能不会响起。无论%@设置如何，监控都会开始。"
+            "value" : "闹钟可能不会响起。%@"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "鬧鐘可能不會響起。無論%@設定如何，監控都會開始。"
+            "value" : "鬧鐘可能不會響起。%@"
           }
         }
       }

@@ -37,7 +37,6 @@ struct AlarmDetailView: View {
     @State private var monitoringFailure: String?
 
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var navigationModel: NavigationModel
     @EnvironmentObject private var viewModel: AlarmListViewModel
 
     init(alarm: Alarm, isNew: Bool? = nil) {
@@ -425,10 +424,9 @@ struct AlarmDetailView: View {
         if !AppRuntime.shouldSuppressExternalSideEffects {
             LocationManager.shared.startMonitoring(alarms: savedAlarms)
         }
-        // 保存後の画面遷移は NavigationStack の経路を唯一の情報源とする。
-        // dismiss() を重ねると、保存後に出す設定警告と遷移が競合して
-        // 戻るボタンだけの空画面が残ることがある。
-        navigationModel.path = []
+        // 保存後のホーム復帰と設定警告は親画面がまとめて扱う。
+        // 編集画面と警告がそれぞれ NavigationStack を更新すると、
+        // 新規作成時の複数階層のpopとアラートdismissが競合する。
         NotificationCenter.default.post(name: .alarmSaved, object: savedAlarm)
         UIAccessibility.post(
             notification: .announcement,

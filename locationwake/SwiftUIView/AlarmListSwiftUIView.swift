@@ -66,6 +66,7 @@ struct AlarmListSwiftUIView: View {
     @State private var undoDismissalToken = UUID()
     @State private var pendingPostSaveReview = false
     @State private var postSaveRefreshCompleted = false
+    @State private var postSaveNavigationCompleted = false
     @State private var pendingAuthorizationIssues: [PermissionReadinessIssue] = []
     @State private var reliabilityAlertIssues: [PermissionReadinessIssue] = []
     @AccessibilityFocusState private var accessibilityFocus: AlarmListAccessibilityFocus?
@@ -135,7 +136,6 @@ struct AlarmListSwiftUIView: View {
                 scheduleATTRequest()
             }
             Button("あとで", role: .cancel) {
-                returnToHome()
                 scheduleATTRequest()
             }
         } message: {
@@ -181,6 +181,8 @@ struct AlarmListSwiftUIView: View {
         .onChange(of: navigationModel.path) { _, newPath in
             guard newPath.isEmpty else { return }
             viewModel.loadAlarms()
+            postSaveNavigationCompleted = true
+            completePostSaveReviewIfReady()
         }
         .onChange(of: activityCenter.activeAlarm) { previousAlarm, activeAlarm in
             if activeAlarm != nil {
@@ -505,6 +507,7 @@ struct AlarmListSwiftUIView: View {
         showsAlarmLimitAlert = false
         pendingPostSaveReview = false
         postSaveRefreshCompleted = false
+        postSaveNavigationCompleted = false
         pendingAuthorizationIssues = []
         reliabilityAlertIssues = []
         navigationModel.presentedSheet = nil
@@ -525,22 +528,37 @@ struct AlarmListSwiftUIView: View {
         viewModel.loadAlarms()
         pendingPostSaveReview = true
         postSaveRefreshCompleted = false
+        postSaveNavigationCompleted = false
+        // 先にホームへ戻し、画面遷移が反映された後に警告を表示する。
+        navigationModel.path = []
+        DispatchQueue.main.async {
+            guard navigationModel.path.isEmpty else { return }
+            postSaveNavigationCompleted = true
+            completePostSaveReviewIfReady()
+        }
         permissionReadiness.refresh {
             guard activityCenter.activeAlarm == nil else {
                 pendingAuthorizationIssues = []
                 postSaveRefreshCompleted = false
+                postSaveNavigationCompleted = false
                 return
             }
             pendingAuthorizationIssues = permissionReadiness.snapshot.authorizationIssues
             postSaveRefreshCompleted = true
-            handlePresentedSheetDismissed()
+            completePostSaveReviewIfReady()
         }
     }
 
     private func handlePresentedSheetDismissed() {
+        completePostSaveReviewIfReady()
+    }
+
+    private func completePostSaveReviewIfReady() {
         guard activityCenter.activeAlarm == nil,
               pendingPostSaveReview,
               postSaveRefreshCompleted,
+              postSaveNavigationCompleted,
+              navigationModel.path.isEmpty,
               navigationModel.presentedSheet == nil else {
             return
         }
@@ -552,7 +570,8 @@ struct AlarmListSwiftUIView: View {
         if reliabilityAlertIssues.isEmpty {
             scheduleATTRequest()
         } else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            // 標準のpopアニメーションが落ち着いてから警告を重ねる。
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 guard activityCenter.activeAlarm == nil else { return }
                 showsReliabilityAlert = true
             }
@@ -564,11 +583,6 @@ struct AlarmListSwiftUIView: View {
             guard activityCenter.activeAlarm == nil else { return }
             ATTAuthorizationCoordinator.shared.requestIfEligible()
         }
-    }
-
-    private func returnToHome() {
-        navigationModel.presentedSheet = nil
-        navigationModel.path = []
     }
 
     private var authorizationIssueSummary: String {
@@ -611,7 +625,7 @@ struct AlarmListSwiftUIView: View {
             issueText = AppStrings.text("位置情報と通知の設定を確認してください。")
         }
         return AppStrings.format(
-            "アラームが作動しないことがあります。%@設定にかかわらず監視は開始します。",
+            "アラームが作動しないことがあります。%@",
             issueText
         )
     }
