@@ -64,6 +64,7 @@ struct AlarmDetailView: View {
             monitoringSection
             notificationSection
             repeatSection
+            editorBottomSpacing
         }
         .formStyle(.grouped)
         .tint(AppDesign.tint)
@@ -280,6 +281,18 @@ struct AlarmDetailView: View {
                 }
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
+        }
+    }
+
+    private var editorBottomSpacing: some View {
+        Section {
+            // 下部バナー広告が表示されても、繰り返しの設定全体を広告より上へ
+            // スクロールできるように余白を確保する。
+            Color.clear
+                .frame(height: 112)
+                .accessibilityHidden(true)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
         }
     }
 

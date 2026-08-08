@@ -237,6 +237,7 @@ struct AlarmListSwiftUIView: View {
                                 .foregroundStyle(.orange)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("到着通知に必要な設定があります")
+                                    .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(.primary)
                                 Text(authorizationIssueSummary)
                                     .font(.footnote)
@@ -244,7 +245,14 @@ struct AlarmListSwiftUIView: View {
                             }
                         }
                     }
+                    .accessibilityLabel(
+                        AppStrings.format(
+                            "到着通知に必要な設定があります。%@",
+                            authorizationIssueSummary
+                        )
+                    )
                     .accessibilityHint("必要な設定を確認します")
+                    .accessibilityIdentifier("home.permissionWarning")
                 }
             }
 
@@ -284,7 +292,8 @@ struct AlarmListSwiftUIView: View {
                 Section {
                     // 最後の操作を広告や画面端から離し、スクロール後も押しやすくする。
                     Color.clear
-                        .frame(height: 88)
+                        // バナー広告（59pt）に加えて、主操作の下に32ptを確保する。
+                        .frame(height: 112)
                         .accessibilityHidden(true)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
@@ -804,13 +813,16 @@ private struct AlarmListRow: View {
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.leading)
 
-                        HStack(spacing: 8) {
-                            Image(systemName: soundIconName)
-                            Image(systemName: vibrationIconName)
+                        if !enabledStatusIconNames.isEmpty {
+                            HStack(spacing: 8) {
+                                ForEach(enabledStatusIconNames, id: \.self) { iconName in
+                                    Image(systemName: iconName)
+                                }
+                            }
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
                         }
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .accessibilityHidden(true)
                     } else {
                         Text(AppStrings.text("オフ"))
                         .font(.subheadline)
@@ -872,14 +884,15 @@ private struct AlarmListRow: View {
             : AppStrings.text("バイブなし")
     }
 
-    private var soundIconName: String {
-        alarm.isSoundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill"
-    }
-
-    private var vibrationIconName: String {
-        alarm.isVibrationEnabled
-            ? "iphone.radiowaves.left.and.right"
-            : "iphone"
+    private var enabledStatusIconNames: [String] {
+        var iconNames: [String] = []
+        if alarm.isSoundEnabled {
+            iconNames.append("speaker.wave.2.fill")
+        }
+        if alarm.isVibrationEnabled {
+            iconNames.append("iphone.radiowaves.left.and.right")
+        }
+        return iconNames
     }
 }
 
