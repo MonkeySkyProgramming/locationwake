@@ -96,6 +96,15 @@ struct SettingView: View {
                 }
                 .foregroundStyle(.primary)
             }
+
+            Section {
+                // 下部バナー広告とサポート項目が重ならないように余白を確保する。
+                Color.clear
+                    .frame(height: 112)
+                    .accessibilityHidden(true)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
         }
         .tint(AppDesign.tint)
         .scrollContentBackground(.hidden)
