@@ -476,7 +476,15 @@ private struct AlarmDetailMapPreview: View {
 
 struct SoundSelectionView: View {
     @Binding var selectedSound: String
-    private let sounds = ["kind", "modan", "siren"]
+    private let sounds = [
+        "kind",
+        "modan",
+        "siren",
+        "electronic_alarm",
+        "morning_birds",
+        "classical_vibes",
+        "melody_flute"
+    ]
     @State private var audioPlayer: AVAudioPlayer?
 
     var body: some View {
@@ -557,6 +565,10 @@ private func localizedSoundDisplayName(_ sound: String) -> String {
     case "kind": AppStrings.text("やさしい")
     case "modan": AppStrings.text("モダン")
     case "siren": AppStrings.text("サイレン")
+    case "electronic_alarm": AppStrings.text("電子音")
+    case "morning_birds": AppStrings.text("自然音")
+    case "classical_vibes": AppStrings.text("ピアノ")
+    case "melody_flute": AppStrings.text("メロディ")
     default: sound
     }
 }

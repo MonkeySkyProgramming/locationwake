@@ -27,6 +27,10 @@
 		13E84A762C8951F700C933F6 /* modan.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A732C8951F700C933F6 /* modan.mp3 */; };
 		13E84A772C8951F700C933F6 /* siren.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A742C8951F700C933F6 /* siren.mp3 */; };
 		13E84A782C8951F700C933F6 /* kind.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 13E84A752C8951F700C933F6 /* kind.mp3 */; };
+		A11CE2012F0A000100000001 /* electronic_alarm.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A11CE2112F0A000100000001 /* electronic_alarm.mp3 */; };
+		A11CE2022F0A000100000001 /* morning_birds.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A11CE2122F0A000100000001 /* morning_birds.mp3 */; };
+		A11CE2032F0A000100000001 /* classical_vibes.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A11CE2132F0A000100000001 /* classical_vibes.mp3 */; };
+		A11CE2042F0A000100000001 /* melody_flute.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A11CE2142F0A000100000001 /* melody_flute.mp3 */; };
 		A11CE0012F0A000100000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A11CE0022F0A000100000001 /* Localizable.xcstrings */; };
 		A11CE1012F0A000100000001 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A11CE1022F0A000100000001 /* InfoPlist.strings */; };
 		C0D3A0013F00000100000001 /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = C0D3A0023F00000100000001 /* Settings.bundle */; };
@@ -95,6 +99,10 @@
 		13E84A732C8951F700C933F6 /* modan.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = modan.mp3; sourceTree = "<group>"; };
 		13E84A742C8951F700C933F6 /* siren.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = siren.mp3; sourceTree = "<group>"; };
 		13E84A752C8951F700C933F6 /* kind.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = kind.mp3; sourceTree = "<group>"; };
+		A11CE2112F0A000100000001 /* electronic_alarm.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = electronic_alarm.mp3; sourceTree = "<group>"; };
+		A11CE2122F0A000100000001 /* morning_birds.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = morning_birds.mp3; sourceTree = "<group>"; };
+		A11CE2132F0A000100000001 /* classical_vibes.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = classical_vibes.mp3; sourceTree = "<group>"; };
+		A11CE2142F0A000100000001 /* melody_flute.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = melody_flute.mp3; sourceTree = "<group>"; };
 		A11CE0022F0A000100000001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		C0D3A0023F00000100000001 /* Settings.bundle */ = {isa = PBXFileReference; lastKnownFileType = wrapper.plug-in; path = Settings.bundle; sourceTree = "<group>"; };
 		F35D748A9EC20B23C6171DBB /* Pods_locationwake.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_locationwake.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -228,6 +236,10 @@
 				13E84A752C8951F700C933F6 /* kind.mp3 */,
 				13E84A732C8951F700C933F6 /* modan.mp3 */,
 				13E84A742C8951F700C933F6 /* siren.mp3 */,
+				A11CE2112F0A000100000001 /* electronic_alarm.mp3 */,
+				A11CE2122F0A000100000001 /* morning_birds.mp3 */,
+				A11CE2132F0A000100000001 /* classical_vibes.mp3 */,
+				A11CE2142F0A000100000001 /* melody_flute.mp3 */,
 				13E84A262C86B4F700C933F6 /* Info.plist */,
 				13E84A212C86B4F700C933F6 /* Assets.xcassets */,
 				A11CE1022F0A000100000001 /* InfoPlist.strings */,
@@ -380,6 +392,10 @@
 				A11CE1012F0A000100000001 /* InfoPlist.strings in Resources */,
 				13E84A782C8951F700C933F6 /* kind.mp3 in Resources */,
 				13E84A762C8951F700C933F6 /* modan.mp3 in Resources */,
+				A11CE2012F0A000100000001 /* electronic_alarm.mp3 in Resources */,
+				A11CE2022F0A000100000001 /* morning_birds.mp3 in Resources */,
+				A11CE2032F0A000100000001 /* classical_vibes.mp3 in Resources */,
+				A11CE2042F0A000100000001 /* melody_flute.mp3 in Resources */,
 				13B7D32D2CB3D40600BDAD6C /* LaunchScreen.storyboard in Resources */,
 				13E84A772C8951F700C933F6 /* siren.mp3 in Resources */,
 			);
